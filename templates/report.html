@@ -1,0 +1,68 @@
+{% extends "master.html" %}
+
+{% block title %}{{report.versions[0].title}}{% endblock %}
+
+{% block head %}
+<style>
+@media screen and (max-width: 768px) {
+    .report-sidebar-info {
+        padding-bottom: 1em;
+        border-bottom: 1px solid #CCC;
+        margin-bottom: 1em;
+    }
+    .report-show-more-metadata {
+        display: none;
+    }
+}
+@media screen and (min-width: 769px) {
+    .report-expand-more-metadata {
+        display: none;
+    }
+}
+</style>
+{% endblock %}
+
+{% block body %}
+
+<h1>{{report.versions[0].title}}</h1>
+
+<div class="row">
+    <div class="col-sm-4 col-sm-push-8">
+       <div class="report-sidebar-info">
+       {% for version in report.versions %}
+           {% if loop.index0 == 1 %}
+               <div class="report-show-more-metadata">
+           {% endif %}
+           <div class="report-version">
+               <p class="report-version-date">{{version.date|date}}</p>
+               <p class="report-formats">
+                   {% for format in version.formats %}
+                       <a href="/{{format.filename}}">{{format.format}}</a>
+                   {% endfor %}
+               </p>
+           </div>
+       {% endfor %}
+       {% if report.versions|length == 1 %}
+           <div class="report-show-more-metadata">
+       {% endif %}
+
+           <hr>
+           <p class="report-metadata"><a href="{{report.number}}.json">metadata JSON</a></p>
+       </div>
+       <div class="report-expand-more-metadata">
+           <a href="#" onclick="$('.report-show-more-metadata').slideDown(); $(this).remove(); return false;">show more details</a>
+       </div>
+       </div>
+    </div>
+
+    <div class="col-sm-8 col-sm-pull-4">
+        <p class="report-metadata">{{report.number}} {% if report.versions[-1].date != report.versions[0].date %}{{report.versions[-1].date|date}}&ndash;{% endif %}{{report.versions[0].date|date}}</p>
+
+        <div class="report-summary">{{report.versions[0].summary|commonmark|safe}}</div>
+
+        <p class="report-authors">Author(s): {% for author in report.versions[0].authors %}{{author}}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+        </p>
+    </div>
+</div>
+
+{% endblock %}
