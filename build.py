@@ -10,7 +10,7 @@
 #
 # A static website in ./build.
 
-import sys, os.path, glob, shutil, collections, json, datetime
+import sys, os.path, glob, shutil, collections, json, datetime, re
 
 CACHE_DIR = "cache"
 BUILD_DIR = "build"
@@ -132,6 +132,14 @@ def generate_static_page(fn, context, output_fn=None):
 
     if output_fn is None:
         output_fn = fn
+
+    # For debugging, skip this file if we didn't ask for it.
+    # e.g. ONLY=reports/R41360.html
+    if os.environ.get("ONLY") and output_fn != os.environ.get("ONLY"):
+        return
+
+    # Finish constructing the output path.
+
     output_fn = os.path.join(BUILD_DIR, output_fn)
 
     print(output_fn, "...")
@@ -144,7 +152,7 @@ def generate_static_page(fn, context, output_fn=None):
     # Add some filters.
 
     def format_datetime(value):
-        return value.strftime("%x")
+        return value.strftime("%B %-d, %Y")
     env.filters['date'] = format_datetime
 
     def commonmark(value):
@@ -176,6 +184,8 @@ def generate_static_page(fn, context, output_fn=None):
     with open(output_fn, "w") as f:
         f.write(html)
 
+    return True
+
 
 def generate_static_pages(context):
     # Generate a static page for every HTML file in the pages directory.
@@ -197,7 +207,19 @@ def copy_static_assets():
     # modifying the build output, and the source files are under version control anyway.
     shutil.copytree("static", static_dir, copy_function=os.link)
 
+def save_json(obj, fn):
+    class Encoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, datetime.datetime):
+                 return obj.isoformat()
+            return json.JSONEncoder.default(self, obj)
+
+    with open(os.path.join(BUILD_DIR, fn), "w") as f:
+        json.dump(obj, f, indent=2, cls=Encoder)
+
+
 # MAIN
+
 
 if __name__ == "__main__":
     # Load all of the report metadata.
@@ -214,3 +236,10 @@ if __name__ == "__main__":
     # Copy static assets (CSS etc.).
     copy_static_assets()
 
+    # Generate report pages.
+    for report in reports:
+        # Sanity check that report numbers won't cause invalid file paths.
+        if not re.match(r"^[0-9A-Z-]+$", report["number"]):
+            raise Exception("Report has a number that would cause problems for our URL structure.")
+        if generate_static_page("report.html", { "report": report }, output_fn="reports/%s.html" % report["number"]):
+            save_json(report, "reports/%s.json" % report["number"])
