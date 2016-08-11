@@ -28,3 +28,9 @@ Run:
 	./build.py
 
 This will generate the website in the `build` subdirectory. You then must upload it to the public space.
+
+And then:
+
+	./publish.sh
+
+This will copy the built website to the Amazon S3 bucket where the site is served from.
