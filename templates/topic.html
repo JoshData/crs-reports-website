@@ -6,6 +6,8 @@
 
 <h1>{{topic.title}}</h1>
 
+<p style="margin: 2em 0">We&rsquo;re tracking {{topic.reports|length|intcomma}} Congressional Research Service reports in this topic area.</p>
+
 {% for report in topic.reports %}
      {% include "report-in-list.html" %}
 {% endfor %}

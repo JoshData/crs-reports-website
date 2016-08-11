@@ -5,11 +5,23 @@ CRS Reports Archive
 {% endblock %}
 
 {% block body %}
-<h1>CRS Reports Archive</h1>
-<p>Hello</p>
+<h1 style="margin: 1em 0;">CRS Reports Archive</h1>
 
-{% for topic in topics %}
-<p><a href="/topics/{{topic.id}}.html">{{topic.title}}</a></p>
-{% endfor %}
+<p>We&rsquo;s tracking {{reports_count|intcomma}} reports from the Congressional Research Service published from {{first_report_date|date}} to {{last_report_date|date}}.</p>
+
+<div class="row">
+    <div class="col-sm-6">
+        <h2>Recently Published Reports</h2>
+        {% for report in recent_reports %}
+            {% include "report-in-list.html" %}
+        {% endfor %}
+    </div>
+    <div class="col-sm-6">
+        <h2>Browse Topic Areas</h2>
+        {% for topic in topics %}
+            <p><a href="/topics/{{topic.id}}.html">{{topic.title}}</a></p>
+        {% endfor %}
+    </div>
+</div>
 
 {% endblock %}
