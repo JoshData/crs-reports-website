@@ -77,7 +77,7 @@ if __name__ == "__main__":
     pool = Pool()
 
     # For every HTML file, if we haven't yet processed it, then process it.
-    for fn in glob.glob("cache/files/*.html"):
+    for fn in sorted(glob.glob("cache/files/*.html")):
         out_fn = "sanitized-html/" + fn[12:]
         if not os.path.exists(out_fn):
             #process_file(fn, out_fn)
