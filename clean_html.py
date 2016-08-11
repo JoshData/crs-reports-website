@@ -4,6 +4,8 @@ import glob
 import os
 import os.path
 
+from multiprocessing import Pool
+
 import bleach
 import html5lib
 
@@ -55,6 +57,15 @@ def clean_up(content):
 
     return content
 
+
+def process_file(fn, out_fn):
+    print(out_fn, "...")
+    with open(fn) as f1:
+        content = clean_up(f1.read())
+    with open(out_fn, "w") as f2:
+        f2.write(content)
+
+
 # MAIN
 
 if __name__ == "__main__":
@@ -62,12 +73,17 @@ if __name__ == "__main__":
     if not os.path.exists("sanitized-html"):
         os.mkdir("sanitized-html")
 
+    # This is all very slow, so...
+    pool = Pool()
+
     # For every HTML file, if we haven't yet processed it, then process it.
     for fn in glob.glob("cache/files/*.html"):
         out_fn = "sanitized-html/" + fn[12:]
         if not os.path.exists(out_fn):
-            print(out_fn, "...")
-            with open(fn) as f1:
-                content = clean_up(f1.read())
-            with open(out_fn, "w") as f2:
-                f2.write(content)
+            #process_file(fn, out_fn)
+            # Queue up the job.
+            pool.apply_async(process_file, [fn, out_fn])
+
+    # Wait for the last processes to be done.
+    pool.close()
+    pool.join()
