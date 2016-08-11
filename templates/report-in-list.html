@@ -1,0 +1,7 @@
+<div class="crs-report">
+    <p class="report-title"><a href="/reports/{{report.number}}.html">{{report.versions[0].title}}</a></p>
+    <p class="report-metadata">{{report.number}} {% if report.versions[-1].date != report.versions[0].date %}{{report.versions[-1].date|date}}-{% endif %}{{report.versions[0].date|date}}</p>
+    <div class="report-summary">{{report.versions[0].summary|truncate(600)|commonmark|safe}}</div>
+</div>
+
+

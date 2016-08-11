@@ -1,0 +1,13 @@
+{% extends "master.html" %}
+
+{% block title %}{{topic.title}}{% endblock %}
+
+{% block body %}
+
+<h1>{{topic.title}}</h1>
+
+{% for report in topic.reports %}
+     {% include "report-in-list.html" %}
+{% endfor %}
+
+{% endblock %}

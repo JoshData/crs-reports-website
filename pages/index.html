@@ -7,4 +7,9 @@ CRS Reports Archive
 {% block body %}
 <h1>CRS Reports Archive</h1>
 <p>Hello</p>
+
+{% for topic in topics %}
+<p><a href="/topics/{{topic.id}}.html">{{topic.title}}</a></p>
+{% endfor %}
+
 {% endblock %}
