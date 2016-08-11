@@ -1,6 +1,24 @@
 @import url(https://fonts.googleapis.com/css?family=Lato:900);
 
-h1 {
-	margin: 1em 0;
-	font-family: 'Lato', sans-serif;
+h1, h2 {
+    font-family: 'Lato', sans-serif;
 }
+
+h2 {
+    font-size: 22px;
+    margin: 1.5em 0 .75em 0;
+}
+
+.crs-report {
+    margin-bottom: 1.5em;
+}
+
+.crs-report .report-title {
+    font-size: 110%;
+    font-weight: bold;
+}
+
+.crs-report p {
+    margin-bottom: .5em;
+}
+

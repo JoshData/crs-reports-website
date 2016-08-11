@@ -153,6 +153,10 @@ def generate_static_page(fn, context, output_fn=None):
         return CommonMark.commonmark(value)
     env.filters['commonmark'] = commonmark
 
+    def intcomma(value):
+        return format(value, ",d")
+    env.filters['intcomma'] = intcomma
+
     # Load the template.
 
     try:
@@ -249,7 +253,11 @@ if __name__ == "__main__":
 
     # Generate static pages.
     generate_static_pages({
+        "reports_count": len(reports),
+        "first_report_date": reports[-1]['versions'][-1]['date'],
+        "last_report_date": reports[0]['versions'][0]['date'],
         "topics": by_topic,
+        "recent_reports": reports[0:8],
     })
     for topic in by_topic:
         if os.environ.get("ONLY"): continue # for debugging
