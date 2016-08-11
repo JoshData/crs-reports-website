@@ -11,6 +11,7 @@
 # A static website in ./build.
 
 import sys, os.path, glob, shutil, collections, json, datetime, re
+from multiprocessing import Pool
 
 CACHE_DIR = "cache"
 BUILD_DIR = "build"
@@ -208,10 +209,40 @@ def save_json(obj, fn):
         json.dump(obj, f, indent=2, cls=Encoder)
 
 
+def generate_report_page(report):
+    # Sanity check that report numbers won't cause invalid file paths.
+    if not re.match(r"^[0-9A-Z-]+$", report["number"]):
+        raise Exception("Report has a number that would cause problems for our URL structure.")
+
+    # Get the HTML report for the template. Always use the most recent version.
+    html = None
+    for format in report['versions'][0]['formats']:
+        if format['format'] != 'HTML': continue
+        with open(os.path.join("sanitized-html", format['filename'][6:])) as f:
+            html = f.read()
+
+    # Generate the report HTML page.
+    generate_static_page("report.html", {
+        "report": report,
+        "html": html,
+    }, output_fn="reports/%s.html" % report["number"])
+
+    # Write the metadata file.
+    save_json(report, "reports/%s.json" % report["number"])
+
+    # Copy the actual document files into build output.
+    for version in report['versions']:
+       for format in version['formats']:
+           pass
+
+
 # MAIN
 
 
 if __name__ == "__main__":
+    # Prepare to split the work across processors.
+    pool = Pool()
+
     # Load all of the report metadata.
     reports = load_reports_metadata()
     by_topic = index_by_topic(reports)
@@ -229,33 +260,17 @@ if __name__ == "__main__":
 
     # Generate report pages.
     for report in reports:
-        # Sanity check that report numbers won't cause invalid file paths.
-        if not re.match(r"^[0-9A-Z-]+$", report["number"]):
-            raise Exception("Report has a number that would cause problems for our URL structure.")
-
         # For debugging, skip this report if we didn't ask for it.
         # e.g. ONLY=R41360
         if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
             continue
 
-        # Get the HTML report for the template. Always use the most recent version.
-        html = None
-        for format in report['versions'][0]['formats']:
-            if format['format'] != 'HTML': continue
-            with open(os.path.join("sanitized-html", format['filename'][6:])) as f:
-                html = f.read()
+        #generate_report_page(report)
+        # queue the task
+        pool.apply_async(generate_report_page, [report])
 
-        # Generate the report HTML page.
-        generate_static_page("report.html", {
-            "report": report,
-            "html": html,
-        }, output_fn="reports/%s.html" % report["number"])
+    # Wait for the last processes to be done.
+    pool.close()
+    pool.join()
 
-        # Write the metadata file.
-        save_json(report, "reports/%s.json" % report["number"])
-
-        # Copy the actual document files into build output.
-        for version in report['versions']:
-            for format in version['formats']:
-                pass
 
