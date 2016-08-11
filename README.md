@@ -23,14 +23,18 @@ Fetch the latest CRS reports metadata and files from our private archive:
 
 ## Generating the website
 
-Run:
+Re-format the HTML scraped from CRS.gov so that it is safe to embed on our site:
+
+	./clean_html.py
+
+which will generate a file in `sanitized-html` for every HTML file in `cache`. The sanitization is slow, which is why we do this step separately. It will skip files it's already done.
+
+Generate the website in the `build` subdirectory:
 
 	./build.py
 
-This will generate the website in the `build` subdirectory. You then must upload it to the public space.
-
-And then:
+You then must upload it to the public space:
 
 	./publish.sh
 
-This will copy the built website to the Amazon S3 bucket where the site is served from.
+which will copy the built website to the Amazon S3 bucket where the site is served from.

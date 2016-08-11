@@ -62,6 +62,11 @@
 
         <p class="report-authors">Author(s): {% for author in report.versions[0].authors %}{{author}}{% if not loop.last %}, {% endif %}{% endfor %}</p>
         </p>
+
+        {% if html %}
+            <hr>
+            {{html|safe}}
+        {% endif %}
     </div>
 </div>
 

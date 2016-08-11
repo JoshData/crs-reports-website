@@ -132,14 +132,6 @@ def generate_static_page(fn, context, output_fn=None):
 
     if output_fn is None:
         output_fn = fn
-
-    # For debugging, skip this file if we didn't ask for it.
-    # e.g. ONLY=reports/R41360.html
-    if os.environ.get("ONLY") and output_fn != os.environ.get("ONLY"):
-        return
-
-    # Finish constructing the output path.
-
     output_fn = os.path.join(BUILD_DIR, output_fn)
 
     print(output_fn, "...")
@@ -183,8 +175,6 @@ def generate_static_page(fn, context, output_fn=None):
     os.makedirs(os.path.dirname(output_fn), exist_ok=True)
     with open(output_fn, "w") as f:
         f.write(html)
-
-    return True
 
 
 def generate_static_pages(context):
@@ -231,6 +221,7 @@ if __name__ == "__main__":
         "topics": by_topic,
     })
     for topic in by_topic:
+        if os.environ.get("ONLY"): continue # for debugging
         generate_static_page("topic.html", { "topic": topic }, output_fn="topics/%d.html" % topic["id"])
 
     # Copy static assets (CSS etc.).
@@ -241,5 +232,30 @@ if __name__ == "__main__":
         # Sanity check that report numbers won't cause invalid file paths.
         if not re.match(r"^[0-9A-Z-]+$", report["number"]):
             raise Exception("Report has a number that would cause problems for our URL structure.")
-        if generate_static_page("report.html", { "report": report }, output_fn="reports/%s.html" % report["number"]):
-            save_json(report, "reports/%s.json" % report["number"])
+
+        # For debugging, skip this report if we didn't ask for it.
+        # e.g. ONLY=R41360
+        if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
+            continue
+
+        # Get the HTML report for the template. Always use the most recent version.
+        html = None
+        for format in report['versions'][0]['formats']:
+            if format['format'] != 'HTML': continue
+            with open(os.path.join("sanitized-html", format['filename'][6:])) as f:
+                html = f.read()
+
+        # Generate the report HTML page.
+        generate_static_page("report.html", {
+            "report": report,
+            "html": html,
+        }, output_fn="reports/%s.html" % report["number"])
+
+        # Write the metadata file.
+        save_json(report, "reports/%s.json" % report["number"])
+
+        # Copy the actual document files into build output.
+        for version in report['versions']:
+            for format in version['formats']:
+                pass
+
