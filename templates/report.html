@@ -2,30 +2,6 @@
 
 {% block title %}{{report.versions[0].title}}{% endblock %}
 
-{% block head %}
-<style>
-#download-link {
-    float: right;
-    margin: 0 0 1.5em 1.5em;
-}
-    #download-link a {
-        font-size: 120%;
-    }
-#sidebar-metadata {
-    font-size: 90%;
-    margin-left: 1em;
-}
-    #sidebar-metadata p:last-child {
-        margin: 0;
-    }
-@media screen and (max-width: 768px) {
-    #sidebar-metadata {
-        margin: 16px 0;
-    }
-}
-</style>
-{% endblock %}
-
 {% block body %}
 
 <h1>{{report.versions[0].title}}</h1>
@@ -55,17 +31,23 @@
        <div class="panel panel-default">
        <div class="panel-heading">Revision History</div>
        <div class="panel-body">
+           <table id="report-versions">
            {% for version in report.versions %}
-           <p class="report-version">
-               <span class="report-version-date">{{version.date|date}}</span>
-               &mdash;
-               <span class="report-formats">
+           <tr>
+               <td class="report-version-date">{{version.date|date}}</td>
+               <td class="report-formats">
                    {% for format in version.formats %}
                        <a href="/{{format.filename}}">{{format.format}}</a>
                    {% endfor %}
-               </span>
-           </p>
+               </td>
+               {% if 'percent_change' in version %}
+               <td class="report-changes">
+                   ({% if version.percent_change > 0 %}{{version.percent_change}}% changed{% else %}no change{% endif %})
+               </td>
+               {% endif %}
+           </tr>
            {% endfor %}
+           </table>
        </div>
        </div>
 
