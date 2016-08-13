@@ -91,8 +91,16 @@ def generate_static_page(fn, context, output_fn=None):
 
     def format_summary(text):
         # Some summaries have double-newlines that are probably paragraph breaks.
-        # Other newlines are hard linebreaks at the ends of ~60-column lines that
-        # we don't care about.
+        # Others have newlines at the ends of ~60-column lines that we don't care about.
+        # Finally, some summaries have single linebreaks that seem to represent paragraphs.
+        # Which are we dealing with?
+        def avg(items): return sum(items)/len(items)
+        avg_line_length = avg([len(line) for line in text.split("\n")+[""]])
+        if avg_line_length > 100:
+            # Seems like newlines probably indicate paragraphs. Double them up so that we
+            # can pass the rest through a renderer.
+            text = text.replace("\n", "\n\n")
+        # Turn the text into HTML. This is a fast way to do it that might work nicely.
         import CommonMark
         return CommonMark.commonmark(text)
     env.filters['format_summary'] = format_summary
