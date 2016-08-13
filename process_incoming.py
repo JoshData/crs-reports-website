@@ -105,6 +105,10 @@ def transform_report_metadata(meta):
 
 
 def clean_html(content):
+    # Some reports are invalid HTML with a whole doctype and html node inside
+    # the main report container element.
+    extract_blockquote = ('<div class="Report"><!DOCTYPE' in content)
+
     # Extract the report itself from the whole page.
     import html5lib
     content = html5lib.parse(content)
@@ -113,20 +117,36 @@ def clean_html(content):
     if content is None:
         raise ValueError("HTML page doesn't contain an element with the Report CSS class")
 
-    # Kill mailto: links, which have author emails, which we want to scrub.
-    for tag in content.findall(".//a"):
-        if 'href' in tag.attrs and tag['href'].lower().startswith("mailto:"):
-            tag.name = "span"
-            del tag['href']
-            tag.string = "[scrubbed]"
+    if extract_blockquote:
+        content = content.find("{http://www.w3.org/1999/xhtml}blockquote")
+        if content is None:
+            raise ValueError("HTML page didn't have the expected blockquote.")
+        content.tag = "div"
 
+    # Pr-process some tags.
     for tag in [content] + content.findall(".//*"):
-        if isinstance(tag.tag, str):
-            tag.tag = tag.tag.replace("{http://www.w3.org/1999/xhtml}", "")
+        # Skip non-element nodes.
+        if not isinstance(tag.tag, str): continue
 
-        # Demote h#s.
+        # Remove the XHTML namespace to make processing easier.
+        tag.tag = tag.tag.replace("{http://www.w3.org/1999/xhtml}", "")
+
+        # Kill mailto: links, which have author emails, which we want to scrub.
+        if 'href' in tag.attrib and tag.attrib['href'].lower().startswith("mailto:"):
+            tag.tag = "span"
+            del tag.attrib['href']
+            tag.text = "[scrubbed]"
+
+        # Demote h#s. These seem to occur around the table of contents only.
         if tag.tag in ("h1", "h2", "h3", "h4", "h5"):
             tag.tag = "h" + str(int(tag.tag[1:])+1)
+
+        # Turn some classes into h#s.
+        for cls in tag.attrib.get("class", "").split(" "):
+            if cls in ("Heading1", "Heading2", "Heading3", "Heading4", "Heading5"):
+                tag.tag = "h" + str(int(cls[7:])+1)
+            if cls == "SummaryHeading":
+                tag.tag = "h2"
 
     import xml.etree
     content = xml.etree.ElementTree.tostring(content, encoding="unicode", method="html")
@@ -147,7 +167,7 @@ def clean_html(content):
         content,
         tags=["a", "img", "b", "strong", "i", "em", "u", "sup", "sub", "span", "div", "p", "br", "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td", "hr", "h2", "h3", "h4", "h5", "h6"],
         attributes={
-            "*": "title",
+            "*": ["title"],
             "a": link_filter,
             "img": image_filter,
         }
