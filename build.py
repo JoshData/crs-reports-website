@@ -26,10 +26,14 @@ def load_all_reports():
         with open(fn) as f:
             report = json.load(f)
 
-        # Parse the datetimes.
+        # Do some light processing to aid templates.
         for version in report["versions"]:
+            # Parse the datetimes.
             version["date"] = datetime.datetime.strptime(version["date"], "%Y-%m-%dT%H:%M:%S")
             version["fetched"] = datetime.datetime.strptime(version["fetched"], "%Y-%m-%dT%H:%M:%S.%f")
+
+            # Sort the version files - put PDF first.
+            version["formats"].sort(key = lambda fmt : fmt["format"] == "PDF", reverse=True)
 
         reports.append(report)
 

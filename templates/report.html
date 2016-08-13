@@ -4,19 +4,23 @@
 
 {% block head %}
 <style>
-@media screen and (max-width: 768px) {
-    .report-sidebar-info {
-        padding-bottom: 1em;
-        border-bottom: 1px solid #CCC;
-        margin-bottom: 1em;
-    }
-    .report-show-more-metadata {
-        display: none;
-    }
+#download-link {
+    float: right;
+    margin: 0 0 1.5em 1.5em;
 }
-@media screen and (min-width: 769px) {
-    .report-expand-more-metadata {
-        display: none;
+    #download-link a {
+        font-size: 120%;
+    }
+#sidebar-metadata {
+    font-size: 90%;
+    margin-left: 1em;
+}
+    #sidebar-metadata p:last-child {
+        margin: 0;
+    }
+@media screen and (max-width: 768px) {
+    #sidebar-metadata {
+        margin: 16px 0;
     }
 }
 </style>
@@ -26,48 +30,63 @@
 
 <h1>{{report.versions[0].title}}</h1>
 
+<p class="report-metadata">
+    {{report.number}}
+    {% if report.versions[-1].date != report.versions[0].date %}{{report.versions[-1].date|date}}&ndash;{% endif %}{{report.versions[0].date|date}}
+</p>
+
 <div class="row">
-    <div class="col-sm-4 col-sm-push-8">
-       <div class="report-sidebar-info">
-       {% for version in report.versions %}
-           {% if loop.index0 == 1 %}
-               <div class="report-show-more-metadata">
-           {% endif %}
-           <div class="report-version">
-               <p class="report-version-date">{{version.date|date}}</p>
-               <p class="report-formats">
-                   {% for format in version.formats %}
-                       <a href="/{{format.filename}}">{{format.format}}</a>
-                   {% endfor %}
-               </p>
-           </div>
-       {% endfor %}
-       {% if report.versions|length == 1 %}
-           <div class="report-show-more-metadata">
-       {% endif %}
-
-           <hr>
-           <p class="report-metadata"><a href="{{report.number}}.json">metadata JSON</a></p>
-       </div>
-       <div class="report-expand-more-metadata">
-           <a href="#" onclick="$('.report-show-more-metadata').slideDown(); $(this).remove(); return false;">show more details</a>
-       </div>
-       </div>
-    </div>
-
-    <div class="col-sm-8 col-sm-pull-4">
-        <p class="report-metadata">{{report.number}} {% if report.versions[-1].date != report.versions[0].date %}{{report.versions[-1].date|date}}&ndash;{% endif %}{{report.versions[0].date|date}}</p>
+    <div class="col-sm-8">
+        {% for format in report.versions[0].formats %}
+             {% if format.format == "PDF" %}
+                 <div id="download-link">
+                     <a href="/{{format.filename}}" class="btn btn-success">Download {{format.format}}</a>
+                 </div>
+             {% endif %}
+        {% endfor %}
 
         <div class="report-summary">{{report.versions[0].summary|format_summary|safe}}</div>
 
         <p class="report-authors">Author(s): {% for author in report.versions[0].authors %}{{author}}{% if not loop.last %}, {% endif %}{% endfor %}</p>
-        </p>
+    </div> <!-- /col -->
 
+    <div class="col-sm-4">
+    <div id="sidebar-metadata">
+       <div class="panel panel-default">
+       <div class="panel-heading">Revision History</div>
+       <div class="panel-body">
+           {% for version in report.versions %}
+           <p class="report-version">
+               <span class="report-version-date">{{version.date|date}}</span>
+               &mdash;
+               <span class="report-formats">
+                   {% for format in version.formats %}
+                       <a href="/{{format.filename}}">{{format.format}}</a>
+                   {% endfor %}
+               </span>
+           </p>
+           {% endfor %}
+       </div>
+       </div>
+
+       <div class="panel panel-default">
+       <div class="panel-heading">Open Data</div>
+       <div class="panel-body">
+           <p class="report-metadata"><a href="{{report.number}}.json">JSON</a></p>
+       </div>
+       </div>
+    </div>
+    </div> <!-- /col -->
+
+</div> <!-- /row -->
+
+<div class="row">
+    <div class="col-sm-8">
         {% if html %}
             <hr>
             {{html|safe}}
         {% endif %}
-    </div>
-</div>
+    </div> <!-- /col -->
+</div> <!-- /row -->
 
 {% endblock %}
