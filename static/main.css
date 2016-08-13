@@ -9,6 +9,10 @@ h2 {
     margin: 1.5em 0 .75em 0;
 }
 
+td { /* for CRS footnotes */
+    vertical-align: top;
+}
+
 /* SUMMARY PAGES */
 
 .crs-report {
