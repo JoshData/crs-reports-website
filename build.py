@@ -12,7 +12,6 @@
 # * A static website in ./build.
 
 import sys, os.path, glob, shutil, collections, json, datetime, re
-from multiprocessing import Pool
 
 REPORTS_DIR = "reports"
 BUILD_DIR = "build"
@@ -33,6 +32,10 @@ def load_all_reports():
             version["fetched"] = datetime.datetime.strptime(version["fetched"], "%Y-%m-%dT%H:%M:%S.%f")
 
         reports.append(report)
+
+    # Sort them reverse-chronologically on the most recent publication date.
+    # Other functions here depend on that.
+    reports.sort(key = lambda report : report["versions"][0]["date"], reverse=True)
 
     return reports
 
@@ -143,16 +146,6 @@ def copy_static_assets():
     # modifying the build output, and the source files are under version control anyway.
     shutil.copytree("static", static_dir, copy_function=os.link)
 
-def save_json(obj, fn):
-    class Encoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, datetime.datetime):
-                 return obj.isoformat()
-            return json.JSONEncoder.default(self, obj)
-
-    with open(os.path.join(BUILD_DIR, fn), "w") as f:
-        json.dump(obj, f, indent=2, cls=Encoder)
-
 
 def generate_report_page(report):
     # Sanity check that report numbers won't cause invalid file paths.
@@ -163,8 +156,13 @@ def generate_report_page(report):
     html = None
     for format in report['versions'][0]['formats']:
         if format['format'] != 'HTML': continue
-        with open(os.path.join("sanitized-html", format['filename'][6:])) as f:
-            html = f.read()
+        try:
+            with open(os.path.join("reports/files", format['filename'][6:])) as f:
+                html = f.read()
+        except FileNotFoundError:
+            # If there's an error sanitizing an HTML file, just don't
+            # worry about it.
+            pass
 
     # Generate the report HTML page.
     generate_static_page("report.html", {
@@ -172,8 +170,12 @@ def generate_report_page(report):
         "html": html,
     }, output_fn="reports/%s.html" % report["number"])
 
-    # Write the metadata file.
-    save_json(report, "reports/%s.json" % report["number"])
+    # Hard link the metadata file into place. Don't save the stuff we have in
+    # memory because then we have to worry about avoiding changes in field
+    # order when round-tripping, and also hard linking is cheaper.
+    if not os.path.exists(BUILD_DIR + "/reports/%s.json" % report["number"]):
+        os.link("reports/reports/%s.json" % report["number"],
+                BUILD_DIR + "/reports/%s.json" % report["number"])
 
     # Copy the actual document files into build output.
     for version in report['versions']:
@@ -185,9 +187,6 @@ def generate_report_page(report):
 
 
 if __name__ == "__main__":
-    # Prepare to split the work across processors.
-    pool = Pool()
-
     # Load all of the report metadata.
     reports = load_all_reports()
     by_topic = index_by_topic(reports)
@@ -214,16 +213,10 @@ if __name__ == "__main__":
         if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
             continue
 
-        #generate_report_page(report)
-        # queue the task
-        pool.apply_async(generate_report_page, [report])
+        generate_report_page(report)
 
     # Hard-link the reports/files directory into the build directory.
     if not os.path.exists("build/files"):
         os.symlink("../reports/files", "build/files")
-
-    # Wait for the last processes to be done.
-    pool.close()
-    pool.join()
 
 
