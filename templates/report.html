@@ -58,7 +58,7 @@
     <div class="col-sm-8 col-sm-pull-4">
         <p class="report-metadata">{{report.number}} {% if report.versions[-1].date != report.versions[0].date %}{{report.versions[-1].date|date}}&ndash;{% endif %}{{report.versions[0].date|date}}</p>
 
-        <div class="report-summary">{{report.versions[0].summary|commonmark|safe}}</div>
+        <div class="report-summary">{{report.versions[0].summary|format_summary|safe}}</div>
 
         <p class="report-authors">Author(s): {% for author in report.versions[0].authors %}{{author}}{% if not loop.last %}, {% endif %}{% endfor %}</p>
         </p>
