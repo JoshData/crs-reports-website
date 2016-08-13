@@ -17,23 +17,30 @@ Create a new file named `aws_credentials.txt` and put in it your AWS keys for ac
 
 ## Running the site generator
 
-Fetch the latest CRS reports metadata and files from our private archive:
+Fetch the latest CRS reports metadata and files from our private archive and then pre-process them:
 
-	./fetch_reports_files.sh
+	./fetch_reports_files.sh # pulls the files into 'incoming'
+	./process_incoming.py # cleans HTML and transforms JSON to our public format, writing to 'reports'
 
-## Generating the website
+The HTML sanitization step in `process_incoming.py` is slow, which is one reason why we do this step separately. It will skip files it's already done.
 
-Re-format the HTML scraped from CRS.gov so that it is safe to embed on our site:
+The above steps are the only steps that require access to our private archive. If you don't have access to our private archive, you can grab some of our public files and put them into the `reports` directory (TODO: say more about this).
 
-	./clean_html.py
-
-which will generate a file in `sanitized-html` for every HTML file in `cache`. The sanitization is slow, which is why we do this step separately. It will skip files it's already done.
-
-Generate the website in the `build` subdirectory:
+Generate the complete website in the `build` subdirectory:
 
 	./build.py
 
-You then must upload it to the public space:
+For testing, if you want to speed up this step and just build the output for one report, you can give it a report number:
+
+	ONLY=RS20444 ./build.py
+
+For testing, to view the unpublished website, you can run:
+
+	(cd build; python -m SimpleHTTPServer)
+
+and then visit http://localhost:8000/ in your web browser.
+
+You must then upload the built site to the public space:
 
 	./publish.sh
 

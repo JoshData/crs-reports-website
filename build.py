@@ -4,99 +4,37 @@
 #
 # Assumptions:
 #
-# * The CRS report metadata and document files are in the 'cache/documents' and 'cache/files' directories.
+# * The CRS report metadata and document files are in the 'reports/reports' and 'reports/files' directories.
+#   (Thie JSON metadata is the transformed metadata that we published, not what we scraped from CRS.)
 #
 # Output:
 #
-# A static website in ./build.
+# * A static website in ./build.
 
 import sys, os.path, glob, shutil, collections, json, datetime, re
 from multiprocessing import Pool
 
-CACHE_DIR = "cache"
+REPORTS_DIR = "reports"
 BUILD_DIR = "build"
 
-def load_reports_metadata():
-    print("Reading report metadata...")
 
-    # Since we may have multiple metadata records per report if the metadata
-    # was updated, collate them by report ID.
-    reports = collections.defaultdict(lambda : [])
-
-    # Look through all of the metadata records and combine by report.
-    for fn in glob.glob(os.path.join(CACHE_DIR, "documents/*.json")):
+def load_all_reports():
+    # Load all of the reports into memory, because we'll have to scan them all for what topic
+    # they are in.
+    reports = []
+    for fn in glob.glob(os.path.join(REPORTS_DIR, "reports/*.json")):
+        # Parse the JSON.
         with open(fn) as f:
-            doc = json.load(f)
+            report = json.load(f)
 
-        # Parse the CoverDate into a datetime instance. (TODO: Check timezone.)
-        doc['CoverDate'] = datetime.datetime.strptime(doc['CoverDate'], "%Y-%m-%dT%H:%M:%S")
+        # Parse the datetimes.
+        for version in report["versions"]:
+            version["date"] = datetime.datetime.strptime(version["date"], "%Y-%m-%dT%H:%M:%S")
+            version["fetched"] = datetime.datetime.strptime(version["fetched"], "%Y-%m-%dT%H:%M:%S.%f")
 
-        # Store.
-        reports[doc['PrdsProdId']].append(doc)
-
-    # For each report, sort the metadata records in reverse-chronological order, putting
-    # the most recent one first.
-    for report in reports.values():
-        report.sort(key = lambda record : record['CoverDate'], reverse=True)
-
-    # Sort the reports in reverse chronological order by most recent
-    # publication date (the first metadata record, since the arrays have
-    # already been sorted).
-    reports = list(reports.values())
-    reports.sort(key = lambda records : records[0]['CoverDate'], reverse=True)
-
-    # Transform the report metadata to our own data format, so that we have a layer
-    # of abstraction between our data source and what we commit to publishing.
-    reports = [transform_report_metadata(report) for report in reports]
+        reports.append(report)
 
     return reports
-
-
-def transform_report_metadata(meta):
-    # Converts the metadata from the format we fetched directly from CRS into
-    # our public metadata format.
-    #
-    # meta is a *list* of metadata records, newest first, for the same report.
-    # The list gives us a change history of metadata, including when a document
-    # is modified.
-    #
-    # The return value is an collections.OrderedDict so that our output maintains the fields
-    # in a consistent order.
-
-    m = meta[0]
-
-    return collections.OrderedDict([
-        ("id", m["PrdsProdId"]), # report ID, which is persistent across CRS updates to a report
-        ("number", m["ProductNumber"]), # report display number, e.g. 96-123
-        ("updateDate", m["CoverDate"]), # most recent cover date
-        ("firstFetched", meta[-1]["_fetched"]), # first date we picked up this report
-        ("lastFetched", meta[0]["_fetched"]), # last date we picked up this report
-        ("active", m["StatusFlag"] == "Active"), # not sure
-        ("versions", [
-            collections.OrderedDict([
-                ("id", mm["PrdsProdVerId"]), # report version ID, which changes with each version
-                ("date", mm["CoverDate"]), # publication/cover date
-                ("title", mm["Title"]), # title
-                ("summary", mm.get("Summary", "").strip()) or None, # summary, sometimes not present - set to None if not a non-empty string
-                ("formats", [
-                    collections.OrderedDict([
-                        ("format", f["FormatType"]), # "PDF" or "HTML"
-
-                        # these fields we inserted when we scraped the content
-                        ("encoding", f["_"]["encoding"]), # best guess at encoding of HTML content
-                        ("url", f["_"]["url"]), # the URL we fetched the file from
-                        ("sha1", f["_"]["sha1"]), # the SHA-1 hash of the file content
-                        ("filename", f["_"]["filename"]), # the path where the content is stored in our cache
-                    ])
-                    for f in sorted(mm["FormatList"], key = lambda ff : ff["Order"])
-                    ]),
-                ("authors", [author["FirstName"] for author in mm["Authors"]]), # FirstName seems to hold the whole name
-                ("topics", [[entry["PrdsCliItemId"], entry["CliTitle"]] for entry in mm["IBCList"]]),
-                ("fetched", m["_fetched"]), # date we picked up this report | TODO: ChildIBCs?
-            ])
-            for mm in meta
-        ]),
-    ])
 
 
 def index_by_topic(reports):
@@ -148,10 +86,13 @@ def generate_static_page(fn, context, output_fn=None):
         return value.strftime("%B %-d, %Y")
     env.filters['date'] = format_datetime
 
-    def commonmark(value):
+    def format_summary(text):
+        # Some summaries have double-newlines that are probably paragraph breaks.
+        # Other newlines are hard linebreaks at the ends of ~60-column lines that
+        # we don't care about.
         import CommonMark
-        return CommonMark.commonmark(value)
-    env.filters['commonmark'] = commonmark
+        return CommonMark.commonmark(text)
+    env.filters['format_summary'] = format_summary
 
     def intcomma(value):
         return format(value, ",d")
@@ -248,7 +189,7 @@ if __name__ == "__main__":
     pool = Pool()
 
     # Load all of the report metadata.
-    reports = load_reports_metadata()
+    reports = load_all_reports()
     by_topic = index_by_topic(reports)
 
     # Generate static pages.
@@ -257,7 +198,7 @@ if __name__ == "__main__":
         "first_report_date": reports[-1]['versions'][-1]['date'],
         "last_report_date": reports[0]['versions'][0]['date'],
         "topics": by_topic,
-        "recent_reports": reports[0:8],
+        "recent_reports": reports[0:20],
     })
     for topic in by_topic:
         if os.environ.get("ONLY"): continue # for debugging
@@ -276,6 +217,10 @@ if __name__ == "__main__":
         #generate_report_page(report)
         # queue the task
         pool.apply_async(generate_report_page, [report])
+
+    # Hard-link the reports/files directory into the build directory.
+    if not os.path.exists("build/files"):
+        os.symlink("../reports/files", "build/files")
 
     # Wait for the last processes to be done.
     pool.close()
