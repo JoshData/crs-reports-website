@@ -9,6 +9,8 @@ h2 {
     margin: 1.5em 0 .75em 0;
 }
 
+/* SUMMARY PAGES */
+
 .crs-report {
     margin-bottom: 1.5em;
 }
@@ -22,3 +24,29 @@ h2 {
     margin-bottom: .5em;
 }
 
+/* REPORT PAGES */
+
+#download-link {
+    float: right;
+    margin: 0 0 1.5em 1.5em;
+}
+    #download-link a {
+        font-size: 120%;
+    }
+
+#sidebar-metadata {
+    font-size: 90%;
+    margin-left: 1em;
+}
+    #sidebar-metadata p:last-child {
+        margin: 0;
+    }
+@media screen and (max-width: 768px) {
+    #sidebar-metadata {
+        margin: 16px 0;
+    }
+}
+
+#report-versions td {
+    padding-right: 1em;
+}

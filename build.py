@@ -164,22 +164,32 @@ def generate_report_page(report):
     if not re.match(r"^[0-9A-Z-]+$", report["number"]):
         raise Exception("Report has a number that would cause problems for our URL structure.")
 
-    # Get the HTML report for the template. Always use the most recent version.
-    html = None
-    for format in report['versions'][0]['formats']:
-        if format['format'] != 'HTML': continue
-        try:
-            with open(os.path.join("reports/files", format['filename'][6:])) as f:
-                html = f.read()
-        except FileNotFoundError:
-            # If there's an error sanitizing an HTML file, just don't
-            # worry about it.
-            pass
+    # Find the most recent HTML text and also compute the differences between the
+    # HTML versions.
+    most_recent_text = None
+    for version in reversed(report["versions"]):
+        for format in version['formats']:
+            if format['format'] != 'HTML': continue
+            try:
+                with open(os.path.join("reports/files", format['filename'][6:])) as f:
+                    html = f.read()
+            except FileNotFoundError:
+                html = None
+
+            if html and most_recent_text:
+                # Can do a comparison.
+                import difflib
+                version["percent_change"] = int(round(100*(1-difflib.SequenceMatcher(None, most_recent_text, html).quick_ratio())))
+
+            # Keep for next iteration & for displaying most recent text.
+            most_recent_text = html
+
+            break # don't process other formats
 
     # Generate the report HTML page.
     generate_static_page("report.html", {
         "report": report,
-        "html": html,
+        "html": most_recent_text,
     }, output_fn="reports/%s.html" % report["number"])
 
     # Hard link the metadata file into place. Don't save the stuff we have in
