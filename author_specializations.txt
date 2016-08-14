@@ -1,0 +1,33 @@
+African Affairs
+Aging Policy|Aging and Income Security|Gerontology|Health and Aging Policy
+Agricultural Policy|Agricultural Conservation
+American Law|American Public Law|American National Government|National Government|Government Organization and Management
+Asian Affairs|Asian Security Affairs|Asian Trade and Finance
+Aviation Policy|Aviation Security, Safety, and Technology|Aerospace Policy
+Business and Government Relations|Government and Business
+Crime Policy|Organized Crime and Terrorism|Organized Crime and Counter-Terrorism
+Domestic Social Policy|Income Maintenance|Income Security|Social Policy|Social Legislation|Housing Policy
+Economic Policy|Economics|Macroeconomic Policy|Macroeconomics|Public Finance|Quantitative Economics|Financial Economics|Financial Economics and Risk Assessment|Financial Institutions|Government and Finance|Labor Economics
+Education Policy|Education Finance
+Energy Policy|Energy and Energy Infrastructure Policy|Energy and Infrastructure Policy|Energy Economics|Energy and Environmental Economics|Natural Resources Policy|Natural Resource Policy
+Environmental Policy|Resources and Environmental Policy
+European Affairs
+Foreign Affairs|Foreign Affairs and Trade|Foreign Affairs Legislation|Foreign Assistance Policy|Foreign Policy|Foreign Policy and Trade|Foreign Policy Legislation|International Affairs|International Crime and Narcotics|International Humanitarian Policy|International Political Economy|International Relations|International Trade|International Trade and Finance|Global Health
+Health Policy|Health Care Financing|Health Economics|Health Policy and Genetics|Health Services|Drug Safety and Effectiveness|Nutrition and Food Safety|Nutrition Assistance Policy|Public Health and Bioethics|Public Health and Epidemiology|Bioethical Policy|Food Safety and Nutrition
+Humanitarian Policy
+Immigration Policy|Immigration Legislation
+Indian Affairs Policy|American Indian Policy
+Industry and Trade|Industrial Organization and Business|Industrial Engineering and Infrastructure Policy|Industry Economics|Industry Policy|Trade and Finance
+Intelligence and National Security|National Security Policy|National Security Policy and Information Operations|Domestic Security|Domestic Intelligence and Counterterrorism|Domestic Intelligence and Counter-Terrorism|Technology and National Security|Terrorism|Terrorism and International Crime|Terrorism and National Security|U.S. &amp; Foreign National Security Programs|U.S. and Foreign National Security Programs|U.S. Foreign Policy and National Defense|International Security|International Security Affairs
+Internet and Telecommunications Policy|Technology and Telecommunications Policy|Telecommunications Policy
+Latin American Affairs
+Legislative Process|Legislative Information Systems Management
+Middle Eastern Affairs|Middle East Affairs
+National Defense|Military Aviation|Military Ground Forces|Military Information Technology|Military Manpower Policy|Military Operations and Policy|Missile Defense|Missile Proliferation|Naval Affairs|Nonproliferation|Non-proliferation|Nuclear Weapons Policy|Defense Budget|Defense Acquisition|Defense Health Care Policy|Defense Policy
+Religion and Public Policy
+Russian, Central Asian, and Eurasian Affairs|Russian Affairs|Russian and Central Asian Affairs|Russian and Eurasian Affairs
+Science and Technology Policy|Information Science and Technology Policy|Life Sciences
+Separation of Powers
+South Asian Affairs
+Transportation Policy
+Veterans Policy

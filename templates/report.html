@@ -59,10 +59,10 @@
        <div class="panel-heading">Metadata</div>
        <div class="panel-body">
            {# display the topics of the most recent version #}
-           {% if report.versions[0].topics|length > 0 %}
+           {% if report.topics|length > 0 %}
            <div id="topics">
                <p class="heading">Topic areas</p>
-               {% for topic in report.versions[0].topics %}
+               {% for topic in report.topics %}
                   <p>{{topic.name}}</p>
                {% endfor %}
            </div>
