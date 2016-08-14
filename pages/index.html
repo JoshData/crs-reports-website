@@ -17,10 +17,12 @@ CRS Reports Archive
         {% endfor %}
     </div>
     <div class="col-sm-6">
+        <div id="topic-areas">
         <h2>Browse Topic Areas</h2>
         {% for topic in topics %}
-            <p><a href="/topics/{{topic.id}}.html">{{topic.title}}</a></p>
+            <p><a href="/topics/{{topic.id}}.html">{{topic.title}}</a> <span class="count">{{topic.reports|length}}</span></p>
         {% endfor %}
+        </div>
     </div>
 </div>
 

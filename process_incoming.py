@@ -96,7 +96,10 @@ def transform_report_metadata(meta):
                     for f in sorted(mm["FormatList"], key = lambda ff : ff["Order"])
                     ]),
                 ("authors", [author["FirstName"] for author in mm["Authors"]]), # FirstName seems to hold the whole name
-                ("topics", [[entry["PrdsCliItemId"], entry["CliTitle"]] for entry in mm["IBCList"]]), # TODO: ChildIBCs?
+                ("topics", # there's no indication that the PrdsCliItemId has a clash between the two types (IBCList, CongOpsList)
+                    [{ "source": "IBCList", "id": int(entry["PrdsCliItemId"]), "name": entry["CliTitle"] } for entry in mm["IBCList"]]
+                  + [{ "source": "CongOpsList", "id": int(entry["PrdsCliItemId"]), "name": entry["CliTitle"]} for entry in mm["CongOpsList"]]
+                    ), # TODO: ChildIBCs?
                 ("fetched", m["_fetched"]), # date we picked up this report version
             ])
             for mm in meta
