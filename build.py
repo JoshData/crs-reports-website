@@ -13,6 +13,8 @@
 
 import sys, os.path, glob, shutil, collections, json, datetime, re
 
+import tqdm
+
 REPORTS_DIR = "reports"
 BUILD_DIR = "build"
 
@@ -89,7 +91,7 @@ def generate_static_page(fn, context, output_fn=None):
         output_fn = fn
     output_fn = os.path.join(BUILD_DIR, output_fn)
 
-    print(output_fn, "...")
+    #print(output_fn, "...")
 
     # Prepare Jinja2's environment.
 
@@ -129,7 +131,7 @@ def generate_static_page(fn, context, output_fn=None):
     except Exception as e:
         print("Error loading template", fn)
         print(e)
-        sys.exit(1)
+        #sys.exit(1)
 
     # Execute the template.
 
@@ -138,7 +140,7 @@ def generate_static_page(fn, context, output_fn=None):
     except Exception as e:
         print("Error rendering template", fn)
         print(e)
-        sys.exit(1)
+        #sys.exit(1)
 
     # Write the output.
 
@@ -156,7 +158,7 @@ def generate_static_pages(context):
 def copy_static_assets():
     # Copy the static assets from the "static" directory to "build/static".
 
-    print("static assets...")
+    #print("static assets...")
 
     # Clear the output directory first. (copytree requires that the destination not exist)
     static_dir = os.path.join(BUILD_DIR, "static")
@@ -222,7 +224,8 @@ if __name__ == "__main__":
     reports = load_all_reports()
     by_topic = index_by_topic(reports)
 
-    # Generate static pages.
+    # Generate main pages.
+    print("Static pages...")
     generate_static_pages({
         "reports_count": len(reports),
         "first_report_date": reports[-1]['versions'][-1]['date'],
@@ -230,15 +233,18 @@ if __name__ == "__main__":
         "topics": by_topic,
         "recent_reports": reports[0:20],
     })
-    for topic in by_topic:
+
+    # Generate topic pages.
+    for topic in tqdm.tqdm(by_topic, desc="topic pages"):
         if os.environ.get("ONLY"): continue # for debugging
         generate_static_page("topic.html", { "topic": topic }, output_fn="topics/%d.html" % topic["id"])
 
     # Copy static assets (CSS etc.).
+    print("Copying static assets...")
     copy_static_assets()
 
     # Generate report pages.
-    for report in reports:
+    for report in tqdm.tqdm(reports, desc="report pages"):
         # For debugging, skip this report if we didn't ask for it.
         # e.g. ONLY=R41360
         if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
@@ -248,6 +254,7 @@ if __name__ == "__main__":
 
     # Hard-link the reports/files directory into the build directory.
     if not os.path.exists("build/files"):
+        print("Creating build/files.")
         os.symlink("../reports/files", "build/files")
 
 
