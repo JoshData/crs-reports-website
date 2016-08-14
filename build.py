@@ -50,13 +50,22 @@ def index_by_topic(reports):
     for report in reports:
         topics = set()
         for version in report["versions"]:
-            for topic_id, topic_name in version["topics"]:
+            for topic in version["topics"]:
+                topic_id = topic["id"]
+                if topic_id == 4163:
+                    # There are two IDs for 'Legislative Branch Appropriations', one from the IBCList and one from the CongOpsList. Merge these.
+                    topic_id = 2348
+
                 topics.add(topic_id)
 
                 # The textual name of a topic area might change, but the ID is probably persistent.
                 # Remember the most recent topic area textual name for each topic ID.
                 if topic_id not in topic_area_names or topic_area_names[topic_id][0] < version["date"]:
-                    topic_area_names[topic_id] = (version["date"], topic_name)
+                    topic_area_names[topic_id] = (version["date"], topic["name"])
+
+        if len(topics) == 0:
+            topics.add(0)
+            topic_area_names[0] = (None, "Uncategorized")
 
         for topic in topics:
             topic_area_reports[topic].append(report)
