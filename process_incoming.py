@@ -7,6 +7,7 @@ import os
 import os.path
 import json
 
+import tqdm
 import bleach
 import html5lib
 
@@ -180,7 +181,7 @@ def clean_html(content):
 
 
 def process_file(func, content_fn, out_fn):
-    print(out_fn, "...")
+    #print(out_fn, "...")
 
     if isinstance(content_fn, str):
         # content_fn is a filename to open
@@ -236,10 +237,16 @@ if __name__ == "__main__":
     # We'll skip files that we've processed. If we change the clean_html
     # logic then you should delete the whole reports/html directory and
     # re-run this.
-    for fn in sorted(glob.glob("incoming/files/*.html")):
+    open_tasks = []
+    for fn in tqdm.tqdm(sorted(glob.glob("incoming/files/*.html")), desc="cleaning HTML"):
         out_fn = "reports/files/" + os.path.basename(fn)
         if not os.path.exists(out_fn):
-            pool.apply_async(process_file, [clean_html, fn, out_fn])
+            ar = pool.apply_async(process_file, [clean_html, fn, out_fn])
+            open_tasks.append(ar)
+        if len(open_tasks) > 20:
+            # So that the tqdm progress meter works, wait synchronously
+            # every so often.
+            open_tasks.pop(0).wait()
 
     # Wait for the last processes to be done.
     pool.close()
