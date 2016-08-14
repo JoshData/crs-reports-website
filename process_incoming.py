@@ -114,7 +114,7 @@ def clean_html(content):
 
     # Extract the report itself from the whole page.
     import html5lib
-    content = html5lib.parse(content)
+    content = html5lib.parse(content, treebuilder="lxml")
     content = content.find(".//*[@class='Report']")
 
     if content is None:
@@ -151,8 +151,8 @@ def clean_html(content):
             if cls == "SummaryHeading":
                 tag.tag = "h2"
 
-    import xml.etree
-    content = xml.etree.ElementTree.tostring(content, encoding="unicode", method="html")
+    import lxml.etree
+    content = lxml.etree.tostring(content, encoding=str, method="html")
 
     # Guard against unsafe content.
     import bleach

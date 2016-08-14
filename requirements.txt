@@ -2,3 +2,4 @@ jinja2
 commonmark==0.7.2
 html5lib
 bleach
+lxml
