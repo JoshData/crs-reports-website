@@ -28,6 +28,22 @@ def parse_dt(s, hasmicro=False, utc=False):
     return (utc_tz if utc else us_eastern_tz).localize(dt)
 
 
+# Load the categories.
+topic_areas = []
+for line in open("author_specializations.txt"):
+    terms = line.strip().split("|")
+    if terms == [""]: continue
+    topic_areas.append({
+        "name": terms[0],
+        "terms": set(terms),
+        "slug": re.sub(r"\W+", "-", terms[0].lower()),
+    })
+topic_areas.append({
+    "name": "Uncategorized",
+    "terms": set(),
+    "slug": "uncategorized",
+})
+
 def load_all_reports():
     # Load all of the reports into memory, because we'll have to scan them all for what topic
     # they are in.
@@ -56,38 +72,13 @@ def load_all_reports():
 
 
 def index_by_topic(reports):
-    topic_area_names = { }
-    topic_area_reports = collections.defaultdict(lambda : [])
-    for report in reports:
-        topics = set()
-        for version in report["versions"]:
-            for topic in version["topics"]:
-                topic_id = topic["id"]
-                if topic_id == 4163:
-                    # There are two IDs for 'Legislative Branch Appropriations', one from the IBCList and one from the CongOpsList. Merge these.
-                    topic_id = 2348
-
-                topics.add(topic_id)
-
-                # The textual name of a topic area might change, but the ID is probably persistent.
-                # Remember the most recent topic area textual name for each topic ID.
-                if topic_id not in topic_area_names or topic_area_names[topic_id][0] < version["date"]:
-                    topic_area_names[topic_id] = (version["date"], topic["name"])
-
-        if len(topics) == 0:
-            topics.add(0)
-            topic_area_names[0] = (None, "Uncategorized")
-
-        for topic in topics:
-            topic_area_reports[topic].append(report)
-
+    # Apply categories to the reports.
     return [{
-               "id": topic_id,
-               "title": topic_area_names[topic_id][1],
-               "reports": topic_area_reports[topic_id],
+               "topic": topic,
+               "reports": [r for r in reports if topic["slug"] in set(t["slug"] for t in r.get("topics", [{"slug": "uncategorized"}]))],
            }
-           for topic_id
-           in sorted(topic_area_names, key = lambda topic_id : topic_area_names[topic_id][1])]
+           for topic
+           in sorted(topic_areas, key = lambda topic : topic["name"])]
 
 
 def generate_static_page(fn, context, output_fn=None):
@@ -200,7 +191,7 @@ def generate_report_page(report):
             except FileNotFoundError:
                 html = None
 
-            if html and most_recent_text:
+            if html and most_recent_text and not os.environ.get("FAST"):
                 # Can do a comparison.
                 if html == most_recent_text:
                     version["percent_change"] = "no-change"
@@ -212,6 +203,16 @@ def generate_report_page(report):
             most_recent_text = html
 
             break # don't process other formats
+
+    # Assign topic areas.
+    if most_recent_text:
+        topics = []
+        for topic in topic_areas:
+            for term in topic["terms"]:
+                if term in most_recent_text:
+                    topics.append(topic)
+                    break # only add topic once
+        report["topics"] = sorted(topics, key = lambda topic : topic["name"])
 
     # Generate the report HTML page.
     generate_static_page("report.html", {
@@ -264,7 +265,21 @@ def create_feed(reports):
 if __name__ == "__main__":
     # Load all of the report metadata.
     reports = load_all_reports()
+
+    # Generate report pages.
+    for report in tqdm.tqdm(reports, desc="report pages"):
+        # For debugging, skip this report if we didn't ask for it.
+        # e.g. ONLY=R41360
+        if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
+            continue
+
+        generate_report_page(report)
+
+    # Generate topic pages.
     by_topic = index_by_topic(reports)
+    for group in tqdm.tqdm(by_topic, desc="topic pages"):
+        if os.environ.get("ONLY"): continue # for debugging
+        generate_static_page("topic.html", group, output_fn="topics/%s.html" % group["topic"]["slug"])
 
     # Generate main pages.
     print("Static pages...")
@@ -276,23 +291,8 @@ if __name__ == "__main__":
         "recent_reports": reports[0:20],
     })
 
-    # Generate topic pages.
-    for topic in tqdm.tqdm(by_topic, desc="topic pages"):
-        if os.environ.get("ONLY"): continue # for debugging
-        generate_static_page("topic.html", { "topic": topic }, output_fn="topics/%d.html" % topic["id"])
-
     # Copy static assets (CSS etc.).
-    print("Copying static assets...")
     copy_static_assets()
-
-    # Generate report pages.
-    for report in tqdm.tqdm(reports, desc="report pages"):
-        # For debugging, skip this report if we didn't ask for it.
-        # e.g. ONLY=R41360
-        if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
-            continue
-
-        generate_report_page(report)
 
     # Hard-link the reports/files directory into the build directory.
     if not os.path.exists("build/files"):

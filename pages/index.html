@@ -24,7 +24,7 @@ CRS Reports Archive
         <div id="topic-areas">
         <h2>Browse Topic Areas</h2>
         {% for topic in topics %}
-            <p><a href="/topics/{{topic.id}}.html">{{topic.title}}</a> <span class="count">{{topic.reports|length}}</span></p>
+            <p><a href="/topics/{{topic.topic.slug}}.html">{{topic.topic.name}}</a> <span class="count">{{topic.reports|length|intcomma}}</span></p>
         {% endfor %}
         </div>
     </div>
