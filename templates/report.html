@@ -52,8 +52,17 @@
        </div>
 
        <div class="panel panel-default">
-       <div class="panel-heading">Open Data</div>
+       <div class="panel-heading">Metadata</div>
        <div class="panel-body">
+           {# display the topics of the most recent version #}
+           {% if report.versions[0].topics|length > 0 %}
+           <div id="topics">
+               <p class="heading">Topic areas</p>
+               {% for topic in report.versions[0].topics %}
+                  <p>{{topic.name}}</p>
+               {% endfor %}
+           </div>
+           {% endif %}
            <p class="report-metadata"><a href="{{report.number}}.json">JSON</a></p>
        </div>
        </div>
