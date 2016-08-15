@@ -14,9 +14,18 @@
 import sys, os.path, glob, shutil, collections, json, datetime, re
 
 import tqdm
+import pytz
 
 REPORTS_DIR = "reports"
 BUILD_DIR = "build"
+
+us_eastern_tz = pytz.timezone('America/New_York')
+utc_tz = pytz.timezone("UTC")
+
+
+def parse_dt(s, hasmicro=False, utc=False):
+    dt = datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S" + (".%f" if hasmicro else ""))
+    return (utc_tz if utc else us_eastern_tz).localize(dt)
 
 
 def load_all_reports():
@@ -31,8 +40,8 @@ def load_all_reports():
         # Do some light processing to aid templates.
         for version in report["versions"]:
             # Parse the datetimes.
-            version["date"] = datetime.datetime.strptime(version["date"], "%Y-%m-%dT%H:%M:%S")
-            version["fetched"] = datetime.datetime.strptime(version["fetched"], "%Y-%m-%dT%H:%M:%S.%f")
+            version["date"] = parse_dt(version["date"])
+            version["fetched"] = parse_dt(version["fetched"], hasmicro=True, utc=True)
 
             # Sort the version files - put PDF first.
             version["formats"].sort(key = lambda fmt : fmt["format"] == "PDF", reverse=True)
@@ -170,6 +179,10 @@ def copy_static_assets():
     shutil.copytree("static", static_dir, copy_function=os.link)
 
 
+def get_report_url_path(report, ext):
+    return "/reports/%s.%s" % (report["number"], ext)
+
+
 def generate_report_page(report):
     # Sanity check that report numbers won't cause invalid file paths.
     if not re.match(r"^[0-9A-Z-]+$", report["number"]):
@@ -201,19 +214,45 @@ def generate_report_page(report):
     generate_static_page("report.html", {
         "report": report,
         "html": most_recent_text,
-    }, output_fn="reports/%s.html" % report["number"])
+    }, output_fn=get_report_url_path(report, 'html')[1:]) # strip leading /
 
     # Hard link the metadata file into place. Don't save the stuff we have in
     # memory because then we have to worry about avoiding changes in field
     # order when round-tripping, and also hard linking is cheaper.
-    if not os.path.exists(BUILD_DIR + "/reports/%s.json" % report["number"]):
+    json_fn = os.path.join(BUILD_DIR, get_report_url_path(report, 'json')[1:]) # strip leading /
+    if not os.path.exists(json_fn):
         os.link("reports/reports/%s.json" % report["number"],
-                BUILD_DIR + "/reports/%s.json" % report["number"])
+                json_fn)
 
-    # Copy the actual document files into build output.
-    for version in report['versions']:
-       for format in version['formats']:
-           pass
+
+def create_feed(reports):
+    # The feed is a notice of new (versions of) reports, so collect the
+    # most recent report-versions.
+    feeditems = []
+    for i, report in enumerate(reports):
+        for j, version in enumerate(report['versions']):
+            feeditems.append((version['date'], i, j))
+    feeditems.sort(reverse=True)
+    feeditems = feeditems[0:75]
+
+    # Create a feed.
+    from feedgen.feed import FeedGenerator
+    feed = FeedGenerator()
+    feed.id('https://ourwebsiteurl')
+    feed.title('CRS Reports Archive - New Reports')
+    feed.link(href='https://ourwebsiteurl', rel='alternate')
+    feed.language('en')
+    feed.description(description="New CRS reports.")
+    for _, report_index, version_index in feeditems:
+        report = reports[report_index]
+        version = report["versions"][version_index]
+        fe = feed.add_entry()
+        fe.id('http://ourwebsiteurl' + get_report_url_path(report, 'html'))
+        fe.title(version["title"])
+        fe.description(description=version["summary"])
+        fe.link(href='http://ourwebsiteurl' + get_report_url_path(report, 'html'))
+        fe.pubdate(version["date"])
+    feed.rss_file(os.path.join(BUILD_DIR, 'rss.xml'))
 
 
 # MAIN
@@ -257,4 +296,5 @@ if __name__ == "__main__":
         print("Creating build/files.")
         os.symlink("../reports/files", "build/files")
 
-
+    # Create feeds.
+    create_feed(reports)
