@@ -32,7 +32,8 @@ td { /* for CRS footnotes */
 }
 
 .crs-report p {
-    margin-bottom: .5em;
+    line-height: 135%;
+    margin-bottom: .25em;
 }
 
 /* REPORT PAGES */

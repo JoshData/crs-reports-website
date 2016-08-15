@@ -1,0 +1,17 @@
+{% extends "master.html" %}
+
+{% block wholetitle %}
+Topic Areas
+{% endblock %}
+
+{% block head %}
+{% endblock %}
+
+{% block body %}
+<h1 style="margin: 1em 0;">Topic Areas</h1>
+
+{% for topic in topics %}
+    <p><a href="/topics/{{topic.topic.slug}}.html">{{topic.topic.name}}</a> <span class="count">{{topic.reports|length|intcomma}}</span></p>
+{% endfor %}
+
+{% endblock %}
