@@ -12,6 +12,10 @@ import bleach
 import html5lib
 
 
+INCOMING_DIR = 'incoming'
+REPORTS_DIR = 'reports'
+
+
 def load_reports_metadata():
     # Load all of the CRS reports metadata into memory. We do this because each report
     # is spread across multiple JSON files, each representing a snapshop of a metadata
@@ -30,7 +34,7 @@ def load_reports_metadata():
     reports = collections.defaultdict(lambda : [])
 
     # Look through all of the metadata records on disk and combine by report.
-    for fn in glob.glob("incoming/documents/*.json"):
+    for fn in glob.glob(os.path.join(INCOMING_DIR, "documents/*.json")):
         with open(fn) as f:
             doc = json.load(f)
 
@@ -208,8 +212,8 @@ def process_file(func, content_fn, out_fn):
 
 if __name__ == "__main__":
     # Make the output directories.
-    os.makedirs('reports/reports', exist_ok=True)
-    os.makedirs('reports/files', exist_ok=True)
+    os.makedirs(os.path.join(REPORTS_DIR, 'reports'), exist_ok=True)
+    os.makedirs(os.path.join(REPORTS_DIR, 'files'), exist_ok=True)
 
     # Combine and transform the report JSON.
     reports = load_reports_metadata()
@@ -217,7 +221,7 @@ if __name__ == "__main__":
     # Write it out to disk.
     for report in reports:
         process_file(transform_report_metadata, report,
-            "reports/reports/" + report[0]["ProductNumber"] + ".json")
+            os.path.join(REPORTS_DIR, "reports", report[0]["ProductNumber"] + ".json"))
 
         # Also create a hard link to the PDF in the incoming directory.
         # (The HTML is handled below because it is cleaned.)
@@ -225,8 +229,8 @@ if __name__ == "__main__":
            for versionformat in reportversion["FormatList"]:
                if versionformat["FormatType"] == "PDF":
                    fn = versionformat["_"]["filename"] # files/QQQ_YYY...
-                   if not os.path.exists(os.path.join("reports", fn)):
-                       os.link(os.path.join("incoming", fn), os.path.join("reports", fn))
+                   if not os.path.exists(os.path.join(REPORTS_DIR, fn)):
+                       os.link(os.path.join(INCOMING_DIR, fn), os.path.join(REPORTS_DIR, fn))
 
     # This is next part is very slow, so use a multiprocessing pool to divide the load
     # across processors.
@@ -238,8 +242,8 @@ if __name__ == "__main__":
     # logic then you should delete the whole reports/html directory and
     # re-run this.
     open_tasks = []
-    for fn in tqdm.tqdm(sorted(glob.glob("incoming/files/*.html")), desc="cleaning HTML"):
-        out_fn = "reports/files/" + os.path.basename(fn)
+    for fn in tqdm.tqdm(sorted(glob.glob(os.path.join(INCOMING_DIR, "files/*.html"))), desc="cleaning HTML"):
+        out_fn = os.path.join(REPORTS_DIR, "files", os.path.basename(fn))
         if not os.path.exists(out_fn):
             ar = pool.apply_async(process_file, [clean_html, fn, out_fn])
             open_tasks.append(ar)
