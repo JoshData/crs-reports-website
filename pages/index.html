@@ -17,7 +17,10 @@ CRS Reports Archive
 <div style="height: 5em">
 </div>
 
-<h2 style="font-size: 18px">Recently Published Reports</h2>
+<h2 style="font-size: 18px">
+  Recently Published Reports
+  <a href="/rss.xml" title="RSS feed for new and updated reports"><img src="/static/rss.png" style="height: 1em; vertical-align: top;" alt="RSS icon"></a>
+</h2>
 {% for report in recent_reports %}
     {% include "report-in-list.html" %}
 {% endfor %}
