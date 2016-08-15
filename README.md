@@ -10,10 +10,12 @@ On a new Linux machine (instructions here for an AWS Amazon Linux instance):
 	sudo pip install s3cmd
 	sudo pip-3.4 install -r requirements.txt
 
-Create a new file named `aws_credentials.txt` and put in it your AWS keys for access to the private CRS reports archive:
+Create a new file named `aws_credentials.txt` and put in it your AWS keys that have access to 1) the private S3 bucket holding the CRS reports archive and 2) the public public S3 bucket holding the website content. Also set the name of the S3 buckets:
 
 	AWS_ACCESS_KEY_ID=...
 	AWS_SECRET_ACCESS_KEY=...
+	AWS_INCOMING_S3_BUCKET=...
+	AWS_WEBSITE_S3_BUCKET=...
 
 ## Running the site generator
 
