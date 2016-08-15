@@ -31,23 +31,27 @@
        <div class="panel panel-default">
        <div class="panel-heading">Revision History</div>
        <div class="panel-body">
-           <table id="report-versions">
+           <div id="report-versions">
            {% for version in report.versions %}
-           <tr>
-               <td class="report-version-date">{{version.date|date}}</td>
-               <td class="report-formats">
+           <div class="row">
+               <div class="col-md-6 col-lg-4 report-version-date">{{version.date|date}}</div>
+               <div class="col-md-6 col-lg-4 report-formats">
                    {% for format in version.formats %}
                        <a href="/{{format.filename}}">{{format.format}}</a>
+                       {% if not loop.last %} &middot; {% endif %}
                    {% endfor %}
-               </td>
+               </div>
                {% if 'percent_change' in version %}
-               <td class="report-changes">
-                   ({% if version.percent_change > 0 %}{{version.percent_change}}% changed{% else %}no change{% endif %})
-               </td>
+               <div class="col-md-6 visible-md-block">&nbsp;</div>
+               <div class="col-md-6 col-lg-4 report-changes" style="margin-bottom: .5em">
+                   {% if version.percent_change == 'no-change' %}no change
+                   {% elif version.percent_change == 0 %}&lt;1% changed
+                   {% else %}{{version.percent_change}}% changed{% endif %}
+               </div>
                {% endif %}
-           </tr>
+           </div>
            {% endfor %}
-           </table>
+           </div>
        </div>
        </div>
 
