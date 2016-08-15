@@ -16,6 +16,24 @@ INCOMING_DIR = 'incoming'
 REPORTS_DIR = 'reports'
 
 
+def write_report_json_files():
+    # Combine and transform the report JSON.
+    reports = load_reports_metadata()
+
+    # Write the transformed dicts out to disk.
+    for report in reports:
+        process_file(transform_report_metadata, report,
+            os.path.join(REPORTS_DIR, "reports", report[0]["ProductNumber"] + ".json"))
+
+        # Also create a hard link to the PDF in the incoming directory.
+        # (The HTML is handled below because it is cleaned.)
+        for reportversion in report:
+           for versionformat in reportversion["FormatList"]:
+               if versionformat["FormatType"] == "PDF":
+                   fn = versionformat["_"]["filename"] # files/QQQ_YYY...
+                   if not os.path.exists(os.path.join(REPORTS_DIR, fn)):
+                       os.link(os.path.join(INCOMING_DIR, fn), os.path.join(REPORTS_DIR, fn))
+
 def load_reports_metadata():
     # Load all of the CRS reports metadata into memory. We do this because each report
     # is spread across multiple JSON files, each representing a snapshop of a metadata
@@ -110,6 +128,31 @@ def transform_report_metadata(meta):
             for mm in meta
         ]),
     ]), indent=2)
+
+
+def clean_html_files():
+    # Use a multiprocessing pool to divide the load across processors.
+    from multiprocessing import Pool
+    pool = Pool()
+
+    # For every HTML file, if we haven't yet processed it, then process it.
+    # We'll skip files that we've processed. If we change the clean_html
+    # logic then you should delete the whole reports/html directory and
+    # re-run this.
+    open_tasks = []
+    for fn in tqdm.tqdm(sorted(glob.glob(os.path.join(INCOMING_DIR, "files/*.html"))), desc="cleaning HTML"):
+        out_fn = os.path.join(REPORTS_DIR, "files", os.path.basename(fn))
+        if not os.path.exists(out_fn):
+            ar = pool.apply_async(process_file, [clean_html, fn, out_fn])
+            open_tasks.append(ar)
+        if len(open_tasks) > 20:
+            # So that the tqdm progress meter works, wait synchronously
+            # every so often.
+            open_tasks.pop(0).wait()
+
+    # Wait for the last processes to be done.
+    pool.close()
+    pool.join()
 
 
 def clean_html(content):
@@ -215,43 +258,8 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(REPORTS_DIR, 'reports'), exist_ok=True)
     os.makedirs(os.path.join(REPORTS_DIR, 'files'), exist_ok=True)
 
+    # Clean/sanitize the HTML files.
+    clean_html_files()
+
     # Combine and transform the report JSON.
-    reports = load_reports_metadata()
-
-    # Write it out to disk.
-    for report in reports:
-        process_file(transform_report_metadata, report,
-            os.path.join(REPORTS_DIR, "reports", report[0]["ProductNumber"] + ".json"))
-
-        # Also create a hard link to the PDF in the incoming directory.
-        # (The HTML is handled below because it is cleaned.)
-        for reportversion in report:
-           for versionformat in reportversion["FormatList"]:
-               if versionformat["FormatType"] == "PDF":
-                   fn = versionformat["_"]["filename"] # files/QQQ_YYY...
-                   if not os.path.exists(os.path.join(REPORTS_DIR, fn)):
-                       os.link(os.path.join(INCOMING_DIR, fn), os.path.join(REPORTS_DIR, fn))
-
-    # This is next part is very slow, so use a multiprocessing pool to divide the load
-    # across processors.
-    from multiprocessing import Pool
-    pool = Pool()
-
-    # For every HTML file, if we haven't yet processed it, then process it.
-    # We'll skip files that we've processed. If we change the clean_html
-    # logic then you should delete the whole reports/html directory and
-    # re-run this.
-    open_tasks = []
-    for fn in tqdm.tqdm(sorted(glob.glob(os.path.join(INCOMING_DIR, "files/*.html"))), desc="cleaning HTML"):
-        out_fn = os.path.join(REPORTS_DIR, "files", os.path.basename(fn))
-        if not os.path.exists(out_fn):
-            ar = pool.apply_async(process_file, [clean_html, fn, out_fn])
-            open_tasks.append(ar)
-        if len(open_tasks) > 20:
-            # So that the tqdm progress meter works, wait synchronously
-            # every so often.
-            open_tasks.pop(0).wait()
-
-    # Wait for the last processes to be done.
-    pool.close()
-    pool.join()
+    write_report_json_files()
