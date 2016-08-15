@@ -229,7 +229,7 @@ def generate_report_page(report):
                 json_fn)
 
 
-def create_feed(reports):
+def create_feed(reports, title, fn):
     # The feed is a notice of new (versions of) reports, so collect the
     # most recent report-versions.
     feeditems = []
@@ -243,7 +243,7 @@ def create_feed(reports):
     from feedgen.feed import FeedGenerator
     feed = FeedGenerator()
     feed.id('https://ourwebsiteurl')
-    feed.title('CRS Reports Archive - New Reports')
+    feed.title('CRS Reports Archive - ' + title)
     feed.link(href='https://ourwebsiteurl', rel='alternate')
     feed.language('en')
     feed.description(description="New CRS reports.")
@@ -256,7 +256,7 @@ def create_feed(reports):
         fe.description(description=version["summary"])
         fe.link(href='http://ourwebsiteurl' + get_report_url_path(report, 'html'))
         fe.pubdate(version["date"])
-    feed.rss_file(os.path.join(BUILD_DIR, 'rss.xml'))
+    feed.rss_file(os.path.join(BUILD_DIR, fn))
 
 
 # MAIN
@@ -275,11 +275,11 @@ if __name__ == "__main__":
 
         generate_report_page(report)
 
-    # Generate topic pages.
+    # Generate topic pages and topic RSS feeds.
     by_topic = index_by_topic(reports)
     for group in tqdm.tqdm(by_topic, desc="topic pages"):
-        if os.environ.get("ONLY"): continue # for debugging
         generate_static_page("topic.html", group, output_fn="topics/%s.html" % group["topic"]["slug"])
+        create_feed(group["reports"], "New Reports in " + group["topic"]["name"], "topics/%s-rss.xml" % group["topic"]["slug"])
 
     # Generate main pages.
     print("Static pages...")
@@ -299,5 +299,5 @@ if __name__ == "__main__":
         print("Creating build/files.")
         os.symlink("../reports/files", "build/files")
 
-    # Create feeds.
-    create_feed(reports)
+    # Create the main feed.
+    create_feed(reports, "New Reports", "rss.xml")
