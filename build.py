@@ -11,13 +11,14 @@
 #
 # * A static website in ./build.
 
-import sys, os.path, glob, shutil, collections, json, datetime, re
+import sys, os.path, glob, shutil, collections, json, datetime, re, hashlib
 
 import tqdm
 import pytz
 
 REPORTS_DIR = "reports"
 BUILD_DIR = "build"
+CACHE_DIR = "cache"
 
 us_eastern_tz = pytz.timezone('America/New_York')
 utc_tz = pytz.timezone("UTC")
@@ -75,7 +76,7 @@ def index_by_topic(reports):
     # Apply categories to the reports.
     return [{
                "topic": topic,
-               "reports": [r for r in reports if topic["slug"] in set(t["slug"] for t in r.get("topics", [{"slug": "uncategorized"}]))],
+               "reports": [r for r in reports if topic["slug"] in set(t["slug"] for t in r.get("topics") or [{"slug": "uncategorized"}])],
            }
            for topic
            in sorted(topic_areas, key = lambda topic : topic["name"])]
@@ -174,10 +175,34 @@ def get_report_url_path(report, ext):
     return "/reports/%s.%s" % (report["number"], ext)
 
 
+def dict_sha1(report):
+    hasher = hashlib.sha1()
+    hasher.update(json.dumps(report, sort_keys=True, default=str).encode("ascii"))
+    return hasher.hexdigest()
+
 def generate_report_page(report):
     # Sanity check that report numbers won't cause invalid file paths.
     if not re.match(r"^[0-9A-Z-]+$", report["number"]):
         raise Exception("Report has a number that would cause problems for our URL structure.")
+
+    # No need to process this report if it hasn't changed. But we need the
+    # cached topics. Never skip if given in the ONLY environment variable.
+    current_hash = dict_sha1(report)
+    hash_fn = os.path.join(CACHE_DIR, report["number"] + ".hash")
+    try:
+        with open(hash_fn) as f:
+            cache = json.load(f)
+            if cache["hash"] == current_hash \
+               and (not os.environ.get("ONLY") or report["number"] != os.environ.get("ONLY")):
+                report["topics"] = [t for t in topic_areas if t["slug"] in cache["topics"]]
+                return
+    except (IOError, ValueError):
+        pass
+
+    # For debugging, skip this report if we didn't ask for it.
+    # e.g. ONLY=R41360
+    if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
+        return
 
     # Find the most recent HTML text and also compute the differences between the
     # HTML versions.
@@ -228,6 +253,12 @@ def generate_report_page(report):
         os.link("reports/reports/%s.json" % report["number"],
                 json_fn)
 
+    # Save current metadata hash so we know this file has been processed.
+    # Also save the topics, since they're dynamically computed and we
+    # need them later to generate the topic pages.
+    if not os.path.exists(CACHE_DIR): os.mkdir(CACHE_DIR)
+    with open(hash_fn, "w") as f:
+        json.dump({ "hash": current_hash, "topics": [t["slug"] for t in report.get("topics",[])] }, f)
 
 def create_feed(reports, title, fn):
     # The feed is a notice of new (versions of) reports, so collect the
@@ -268,11 +299,6 @@ if __name__ == "__main__":
 
     # Generate report pages.
     for report in tqdm.tqdm(reports, desc="report pages"):
-        # For debugging, skip this report if we didn't ask for it.
-        # e.g. ONLY=R41360
-        if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
-            continue
-
         generate_report_page(report)
 
     # Generate topic pages and topic RSS feeds.
