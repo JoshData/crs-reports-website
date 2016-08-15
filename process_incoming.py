@@ -34,6 +34,7 @@ def write_report_json_files():
                    if not os.path.exists(os.path.join(REPORTS_DIR, fn)):
                        os.link(os.path.join(INCOMING_DIR, fn), os.path.join(REPORTS_DIR, fn))
 
+
 def load_reports_metadata():
     # Load all of the CRS reports metadata into memory. We do this because each report
     # is spread across multiple JSON files, each representing a snapshop of a metadata
@@ -161,7 +162,6 @@ def clean_html(content):
     extract_blockquote = ('<div class="Report"><!DOCTYPE' in content)
 
     # Extract the report itself from the whole page.
-    import html5lib
     content = html5lib.parse(content, treebuilder="lxml")
     content = content.find(".//*[@class='Report']")
 
@@ -175,6 +175,7 @@ def clean_html(content):
         content.tag = "div"
 
     # Pr-process some tags.
+    allowed_classes = { "titleline", "authorline", "dateline", "Authors", "Author", "CoverDate" }
     for tag in [content] + content.findall(".//*"):
         # Skip non-element nodes.
         if not isinstance(tag.tag, str): continue
@@ -199,18 +200,28 @@ def clean_html(content):
             if cls == "SummaryHeading":
                 tag.tag = "h2"
 
+        # Sanitize classes using the whitelist above.
+        if "class" in tag.attrib:
+            new_classes = " ".join(sorted(set(tag.attrib["class"].split(" ")) & allowed_classes))
+            if new_classes:
+                tag.attrib["class"] = new_classes
+            else:
+                del tag.attrib["class"]
+
     import lxml.etree
     content = lxml.etree.tostring(content, encoding=str, method="html")
 
     # Guard against unsafe content.
     import bleach
     def link_filter(name, value):
-        if name == "name": # link targets
-            return True
+        if name in ("name", "class"):
+            return True # "name" is for link targets
         if name == "href" and (value.startswith("http:") or value.startswith("https:") or value.startswith("#")):
             return True
         return False
     def image_filter(name, value):
+        if name in ("class",):
+            return True
         if name == "src" and (value.startswith("http:") or value.startswith("https:")):
             return True
         return False
@@ -218,7 +229,7 @@ def clean_html(content):
         content,
         tags=["a", "img", "b", "strong", "i", "em", "u", "sup", "sub", "span", "div", "p", "br", "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td", "hr", "h2", "h3", "h4", "h5", "h6"],
         attributes={
-            "*": ["title"],
+            "*": ["title", "class"],
             "a": link_filter,
             "img": image_filter,
         }
