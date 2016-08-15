@@ -62,6 +62,11 @@ td { /* for CRS footnotes */
     padding-right: 1em;
 }
 
+#report-versions .report-changes {
+    font-size: 95%;
+    color: #666;
+}
+
 #topics {
     margin-bottom: .75em;
 }

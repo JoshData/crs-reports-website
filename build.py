@@ -202,8 +202,11 @@ def generate_report_page(report):
 
             if html and most_recent_text:
                 # Can do a comparison.
-                import difflib
-                version["percent_change"] = int(round(100*(1-difflib.SequenceMatcher(None, most_recent_text, html).quick_ratio())))
+                if html == most_recent_text:
+                    version["percent_change"] = "no-change"
+                else:
+                    import difflib
+                    version["percent_change"] = int(round(100*(1-difflib.SequenceMatcher(None, most_recent_text, html).quick_ratio())))
 
             # Keep for next iteration & for displaying most recent text.
             most_recent_text = html
