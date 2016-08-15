@@ -63,7 +63,7 @@
            <div id="topics">
                <p class="heading">Topic areas</p>
                {% for topic in report.topics %}
-                  <p>{{topic.name}}</p>
+                  <p><a href="/topics/{{topic.slug}}.html">{{topic.name}}</a></p>
                {% endfor %}
            </div>
            {% endif %}
