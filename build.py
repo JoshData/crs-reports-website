@@ -11,7 +11,7 @@
 #
 # * A static website in ./build.
 
-import sys, os.path, glob, shutil, collections, json, datetime, re, hashlib
+import sys, os, os.path, glob, shutil, collections, json, datetime, re, hashlib
 
 import tqdm
 import pytz
@@ -170,6 +170,8 @@ def copy_static_assets():
     # modifying the build output, and the source files are under version control anyway.
     shutil.copytree("static", static_dir, copy_function=os.link)
 
+    # Extract the favicon assets.
+    os.system("unzip -d %s -u branding/favicons.zip" % BUILD_DIR)
 
 def get_report_url_path(report, ext):
     return "/reports/%s.%s" % (report["number"], ext)

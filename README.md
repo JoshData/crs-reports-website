@@ -6,7 +6,7 @@ This repository builds the CRS reports website. It's a totally static website. T
 
 On a new Linux machine (instructions here for an AWS Amazon Linux instance):
 
-	sudi yum install python34-pip gcc libxml2-devel libxslt-devel python34-devel
+	sudo yum install python34-pip gcc libxml2-devel libxslt-devel python34-devel unzip
 	sudo pip install s3cmd
 	sudo pip-3.4 install -r requirements.txt
 
