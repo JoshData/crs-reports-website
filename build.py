@@ -143,6 +143,7 @@ def generate_static_page(fn, context, output_fn=None):
     except Exception as e:
         print("Error rendering template", fn)
         print(e)
+        return
         #sys.exit(1)
 
     # Write the output.
@@ -318,7 +319,7 @@ if __name__ == "__main__":
         "first_report_date": reports[-1]['versions'][-1]['date'],
         "last_report_date": reports[0]['versions'][0]['date'],
         "topics": by_topic,
-        "recent_reports": reports[0:8],
+        "recent_reports": reports[0:6],
     })
 
     # Copy static assets (CSS etc.).

@@ -21,8 +21,15 @@ Every CRS Report
   Recently Published Reports
   <a href="/rss.xml" title="RSS feed for new and updated reports"><img src="/static/rss.png" style="height: 1em; vertical-align: top;" alt="RSS icon"></a>
 </h2>
+<div class="row">
 {% for report in recent_reports %}
-    {% include "report-in-list.html" %}
-{% endfor %}
+    <div class="col-sm-6 crs-report">
+        <p class="report-title"><a href="/reports/{{report.number}}.html">{{report.versions[0].title}}</a></p>
+        <p class="report-metadata">{{report.number}} {{report.versions[0].date|date}}</p>
+        <div class="report-summary">{{report.versions[0].summary|truncate(140)}}</div>
+    </div>
+    {% if loop.index is divisibleby 2 %}<div class="hidden-xs clearfix"></div>{% endif %}
+    {% endfor %}
+</div>
 
 {% endblock %}
