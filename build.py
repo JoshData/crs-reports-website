@@ -19,6 +19,8 @@ import pytz
 REPORTS_DIR = "reports"
 BUILD_DIR = "build"
 CACHE_DIR = "cache"
+SITE_NAME = "EveryCRSReport.com"
+SITE_URL = "https://EveryCRSReport.com"
 
 us_eastern_tz = pytz.timezone('America/New_York')
 utc_tz = pytz.timezone("UTC")
@@ -275,19 +277,19 @@ def create_feed(reports, title, fn):
     # Create a feed.
     from feedgen.feed import FeedGenerator
     feed = FeedGenerator()
-    feed.id('https://ourwebsiteurl')
-    feed.title('CRS Reports Archive - ' + title)
-    feed.link(href='https://ourwebsiteurl', rel='alternate')
+    feed.id(SITE_URL)
+    feed.title(SITE_NAME + ' - ' + title)
+    feed.link(href=SITE_URL, rel='alternate')
     feed.language('en')
-    feed.description(description="New CRS reports.")
+    feed.description(description="New Congressional Research Service reports tracked by " + SITE_NAME + ".")
     for _, report_index, version_index in feeditems:
         report = reports[report_index]
         version = report["versions"][version_index]
         fe = feed.add_entry()
-        fe.id('http://ourwebsiteurl' + get_report_url_path(report, 'html'))
+        fe.id(SITE_URL + get_report_url_path(report, 'html'))
         fe.title(version["title"])
         fe.description(description=version["summary"])
-        fe.link(href='http://ourwebsiteurl' + get_report_url_path(report, 'html'))
+        fe.link(href=SITE_URL + get_report_url_path(report, 'html'))
         fe.pubdate(version["date"])
     feed.rss_file(os.path.join(BUILD_DIR, fn))
 

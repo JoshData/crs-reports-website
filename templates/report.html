@@ -2,6 +2,10 @@
 
 {% block title %}{{report.versions[0].title}}{% endblock %}
 
+{% block head %}
+<meta property="og:title" content="{{report.versions[0].title}}" />
+{% endblock %}
+
 {% block body %}
 
 <h1>{{report.versions[0].title}}</h1>

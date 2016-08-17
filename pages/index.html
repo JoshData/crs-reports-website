@@ -1,16 +1,16 @@
 {% extends "master.html" %}
 
-{% block wholetitle %}
-CRS Reports Archive
+{% block title %}
+Every CRS Report
 {% endblock %}
 
 {% block head %}
 <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/rss.xml"/>
+<meta property="og:title" content="Every CRS Report" />
 {% endblock %}
 
 {% block body %}
-<h1 style="margin: 1em 0;">CRS Reports Archive</h1>
-<div style="font-size: 120%">
+<div style="margin-top: 50px; font-size: 120%">
 <p>We&rsquo;s tracking {{reports_count|intcomma}} reports from the Congressional Research Service published from {{first_report_date|date}} to {{last_report_date|date}}.</p>
 </div>
 
