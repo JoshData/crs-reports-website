@@ -177,7 +177,7 @@ def copy_static_assets():
     os.system("unzip -d %s -u branding/favicons.zip" % BUILD_DIR)
 
 def get_report_url_path(report, ext):
-    return "/reports/%s.%s" % (report["number"], ext)
+    return "reports/%s%s" % (report["number"], ext)
 
 
 def dict_sha1(report):
@@ -209,11 +209,15 @@ def generate_report_page(report):
     if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
         return
 
-    # Find the most recent HTML text and also compute the differences between the
-    # HTML versions.
+    # Find the most recent HTML text, compute the differences between the
+    # HTML versions, and find the most recent PDF filename.
     most_recent_text = None
+    most_recent_pdf_fn = None
     for version in reversed(report["versions"]):
         for format in version['formats']:
+            if format['format'] == "PDF":
+                most_recent_pdf_fn = format['filename']
+
             if format['format'] != 'HTML': continue
             try:
                 with open(os.path.join("reports/files", format['filename'][6:])) as f:
@@ -248,15 +252,22 @@ def generate_report_page(report):
     generate_static_page("report.html", {
         "report": report,
         "html": most_recent_text,
-    }, output_fn=get_report_url_path(report, 'html')[1:]) # strip leading /
+        "thumbnail_url": SITE_URL + "/" + get_report_url_path(report, '.png')
+    }, output_fn=get_report_url_path(report, '.html'))
 
     # Hard link the metadata file into place. Don't save the stuff we have in
     # memory because then we have to worry about avoiding changes in field
     # order when round-tripping, and also hard linking is cheaper.
-    json_fn = os.path.join(BUILD_DIR, get_report_url_path(report, 'json')[1:]) # strip leading /
+    json_fn = os.path.join(BUILD_DIR, get_report_url_path(report, '.json'))
     if not os.path.exists(json_fn):
-        os.link("reports/reports/%s.json" % report["number"],
+        os.link(os.path.join(REPORTS_DIR, "reports/%s.json" % report["number"]),
                 json_fn)
+
+    # Generate thumbnail image.
+    os.system("pdftoppm -png -singlefile -scale-to-x 600 -scale-to-y -1 %s %s" % (
+        os.path.join(REPORTS_DIR, most_recent_pdf_fn),
+        os.path.join(BUILD_DIR, get_report_url_path(report, '')) # pdftoppm adds ".png"
+    ))
 
     # Save current metadata hash so we know this file has been processed.
     # Also save the topics, since they're dynamically computed and we
@@ -287,10 +298,10 @@ def create_feed(reports, title, fn):
         report = reports[report_index]
         version = report["versions"][version_index]
         fe = feed.add_entry()
-        fe.id(SITE_URL + get_report_url_path(report, 'html'))
+        fe.id(SITE_URL + "/" + get_report_url_path(report, '.html'))
         fe.title(version["title"])
         fe.description(description=version["summary"])
-        fe.link(href=SITE_URL + get_report_url_path(report, 'html'))
+        fe.link(href=SITE_URL + "/" + get_report_url_path(report, '.html'))
         fe.pubdate(version["date"])
     feed.rss_file(os.path.join(BUILD_DIR, fn))
 

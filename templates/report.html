@@ -4,6 +4,9 @@
 
 {% block head %}
 <meta property="og:title" content="{{report.versions[0].title}}" />
+<meta property="og:description" content="{{report.versions[0].summary|truncate(140)}}" />
+<meta property="og:image" content="{{thumbnail_url}}" />
+<meta name="twitter:card" content="summary" />
 {% endblock %}
 
 {% block body %}
