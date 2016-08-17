@@ -20,24 +20,33 @@ Create a new file named `aws_credentials.txt` and put in it your AWS keys that h
 
 ## Running the site generator
 
-Fetch the latest CRS reports metadata and files from our private archive and then pre-process them:
+To generate the website's static files, follow these steps.
 
-	./fetch_reports_files.sh # pulls the files into 'incoming'
-	./process_incoming.py # cleans HTML and transforms JSON to our public format, writing to 'reports'
+Fetch the latest CRS reports metadata and files from our private archive (saves them into `incoming/`):
 
-The HTML sanitization step in `process_incoming.py` is slow, which is one reason why we do this step separately. It will skip files it's already done.
+	./fetch_reports_files.sh
 
-The above steps are the only steps that require access to our private archive. If you don't have access to our private archive, you can grab some of our public files and put them into the `reports` directory (TODO: say more about this).
+Then pre-process the files, which creates new JSON and sanitizes the HTML (saves the new files into `reports/`):
+
+	./process_incoming.py
+
+The HTML sanitization step in `process_incoming.py` is quite slow. But it will only process new files on each run. If our code changes and the sanitization process has been changed, delete the whole `reports/` directory so it re-processes everything from scratch.
+
+The above steps are the only steps that require access to our private archive. If you don't have access to our private archive, you can grab some of our public files and put them into the `reports/` directory (TODO: say more about this).
 
 Generate the complete website in the `build` subdirectory:
 
 	./build.py
 
-For testing, if you want to speed up this step and just build the output for one report, you can give it a report number:
+The build step is also quite slow because it is checking for changes between report versions and generating thumbnail images from PDFs. It also will only process changed reports.
+
+For testing, if you want to speed up this step and just build the output for one report, and force it to re-process that report, you can give it a report number in the `ONLY` environment variable:
 
 	ONLY=RS20444 ./build.py
 
-For testing, to view the unpublished website, you can run:
+If the templates or the build process change and all of the report pages need to be re-built, delete the `cache/` directory. (If only the home page, about page, etc. have changed, there is no need to re-process the reports.)
+
+For testing, to view the unpublished website from these generated files, you can run:
 
 	(cd build; python -m SimpleHTTPServer)
 
