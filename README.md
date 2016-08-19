@@ -2,7 +2,103 @@
 
 This repository builds the CRS reports website. It's a totally static website. The scripts here generate the static HTML that get copied into a public URL.
 
-## Preparation
+## AWS Account Configuration
+
+### Resources
+
+The website is driven by several resources in Amazon Web Services.
+
+1) The AWS S3 bucket which holds the private archive of CRS reports.
+
+2) A cheap server running in EC2 which fetches the reports from the private archive, generates the static pages of the website, and uploads the website to (3). Nothing permanent is kept on this server.
+
+3) A second AWS S3 bucket which holds the public, static files of the website. Although an S3 bucket _can_ serve the website directly, it cannot do so with HTTPS, so we don't use that. The bucket itself is therefore not public.
+
+4) An AWS CloudFront "distribution", whose "origin" is configured to be the AWS S3 bucket (3). The CloudFront "distribution" makes the website available to the world on the web. The distribution is set with a custom cache policy and a default TTL of about 14400 (4 hours), so that the site updates eventually after new files are published to the public website S3 bucket (3). Amazon Certificate Manager (ACM) is used to provision a SSL certificate for the HTTPS site.
+
+5) An IAM (Identity and Access Management) account which has read-only access to (1) and read/write access to (3). The IAM account's credentials are stored on the server (2). We use an IAM account and not a master AWS account's credentials so that we only work with the permissions we need.
+
+The DNS for the website's domain name is configured with a CNAME that points to the CloudFront distribution. The non-"www." domain name is parked somewhere with a redirect to the "www." domain name.
+
+### Security Configuration
+
+Create the IAM account. It has an access key, a secret access key, and a user ARN.
+
+Grant the IAM account read-only access to the private reports archive by adding the following bucket policy to the private reports archive S3 bucket, under Properties > Permissions > Add bucket policy. Replace `BUCKET_NAME_HERE` with the _private CRS reports archive bucket name_ and `IAM_USER_ARN_HERE` with the IAM user ARN in the four places they appear:
+
+	{
+		"Id": "Policy1471614193686",
+		"Version": "2012-10-17",
+		"Statement": [
+			{
+				"Sid": "Stmt1471614186000",
+				"Action": [
+					"s3:ListBucket"
+				],
+				"Effect": "Allow",
+				"Resource": "arn:aws:s3:::BUCKET_NAME_HERE",
+				"Principal": {
+					"AWS": [
+						"IAM_USER_ARN_HERE"
+					]
+				}
+			},
+			{
+				"Sid": "Stmt1471614186000",
+				"Action": [
+					"s3:GetObject"
+				],
+				"Effect": "Allow",
+				"Resource": "arn:aws:s3:::BUCKET_NAME_HERE/*",
+				"Principal": {
+					"AWS": [
+						"IAM_USER_ARN_HERE"
+					]
+				}
+			}
+		]
+	}
+
+Grant the IAM account full access to the public website bucket in Properties > Permissions > Add bucket policy. Replace `BUCKET_NAME_HERE` with the _public website bucket name_ and `IAM_USER_ARN_HERE` with the IAM user ARN in the four places they appear:
+
+	{
+	  "Id": "Policy1471615487213",
+	  "Version": "2012-10-17",
+	  "Statement": [
+	    {
+	      "Sid": "Stmt1471615480136",
+	      "Action": [
+	        "s3:ListBucket"
+	      ],
+	      "Effect": "Allow",
+	      "Resource": "arn:aws:s3:::BUCKET_NAME_HERE",
+	      "Principal": {
+	        "AWS": [
+	          "IAM_USER_ARN_HERE"
+	        ]
+	      }
+	    },
+	    {
+	      "Sid": "Stmt1471615480136",
+	      "Action": [
+	        "s3:DeleteObject",
+	        "s3:GetObject",
+	        "s3:PutObject"
+	      ],
+	      "Effect": "Allow",
+	      "Resource": "arn:aws:s3:::BUCKET_NAME_HERE/*",
+	      "Principal": {
+	        "AWS": [
+	          "IAM_USER_ARN_HERE"
+	        ]
+	      }
+	    }
+	  ]
+	}
+
+## Server Preparation
+
+This section prepares a Linux machine that is ready to fetch the CRS reports from the private location and turn them into the public website. The machine need not be running all the time, but without it the website will not be updated.
 
 On a new Linux machine (instructions here for an AWS Amazon Linux instance):
 
@@ -10,7 +106,7 @@ On a new Linux machine (instructions here for an AWS Amazon Linux instance):
 	sudo pip install s3cmd
 	sudo pip-3.4 install -r requirements.txt
 
-Create a new file named `aws_credentials.txt` and put in it your AWS keys that have access to 1) the private S3 bucket holding the CRS reports archive and 2) the public public S3 bucket holding the website content. Also set the name of the S3 buckets:
+Create a new file named `aws_credentials.txt` and put in it the AWS IAM user's access keys that have access to 1) the private S3 bucket holding the CRS reports archive and 2) the public S3 bucket holding the website content. Also set the names of the S3 buckets:
 
 	AWS_ACCESS_KEY_ID=...
 	AWS_SECRET_ACCESS_KEY=...
