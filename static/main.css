@@ -15,10 +15,13 @@ td { /* for CRS footnotes */
 
 /* HOME PAGE */
 
-#topic-areas .count {
+#topic-areas {
+    max-width: 1000px;
+}
+  #topic-areas .count {
     font-size: 90%;
     color: #666;
-}
+  }
 
 /* SUMMARY PAGES */
 

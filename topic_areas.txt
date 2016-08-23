@@ -1,7 +1,10 @@
+# synonyms are grouped with |'s, the first entry in a line is how the topic displays on the site
+
+# categories derived from byline "specialist in ..." terms which somewhat reliably appear thusly
 African Affairs
 Aging Policy|Aging and Income Security|Gerontology|Health and Aging Policy
 Agricultural Policy|Agricultural Conservation
-American Law|American Public Law|American National Government|National Government|Government Organization and Management
+American Law|American Public Law|American National Government|National Government|Government Organization and Management|*A Legal Analysis|*A Legal Overview
 Asian Affairs|Asian Security Affairs|Asian Trade and Finance
 Crime Policy|Organized Crime and Terrorism|Organized Crime and Counter-Terrorism
 Domestic Social Policy|Income Maintenance|Income Security|Social Policy|Social Legislation|Housing Policy|Religion and Public Policy
@@ -23,7 +26,12 @@ Middle Eastern Affairs|Middle East Affairs
 National Defense|Military Aviation|Military Ground Forces|Military Information Technology|Military Manpower Policy|Military Operations and Policy|Missile Defense|Missile Proliferation|Naval Affairs|Nonproliferation|Non-proliferation|Nuclear Weapons Policy|Defense Budget|Defense Acquisition|Defense Health Care Policy|Defense Policy
 Russian, Central Asian, and Eurasian Affairs|Russian Affairs|Russian and Central Asian Affairs|Russian and Eurasian Affairs
 Science and Technology Policy|Information Science and Technology Policy|Life Sciences
-Separation of Powers
 South Asian Affairs
 Transportation Policy|Aviation Policy|Aviation Security, Safety, and Technology|Aerospace Policy
 Veterans Policy
+
+# other categories we're adding based on terms we see commonly in titles
+# '*' signals to only search titles and summaries
+*Appropriations
+Constitutional Questions|*Constitutional|Separation of Powers
+

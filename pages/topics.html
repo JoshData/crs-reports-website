@@ -10,8 +10,15 @@ CRS Report Topic Areas
 {% block body %}
 <h1 style="margin: 1em 0;">Topic Areas</h1>
 
+<div id="topic-areas" class="row">
 {% for topic in topics %}
+  <div class="col-xs-6 col-sm-4 col-md-3">
     <p><a href="/topics/{{topic.topic.slug}}.html">{{topic.topic.name}}</a> <span class="count">{{topic.reports|length|intcomma}}</span></p>
+  </div>
+  {% if loop.index is divisibleby 2 %}<div class="visible-xs-block clearfix"></div>{% endif %}
+  {% if loop.index is divisibleby 3 %}<div class="visible-sm-block clearfix"></div>{% endif %}
+  {% if loop.index is divisibleby 4 %}<div class="visible-md-block visible-lg-block clearfix"></div>{% endif %}
 {% endfor %}
+</div>
 
 {% endblock %}

@@ -33,18 +33,22 @@ def parse_dt(s, hasmicro=False, utc=False):
 
 # Load the categories.
 topic_areas = []
-for line in open("author_specializations.txt"):
+for line in open("topic_areas.txt"):
+    if line.startswith("#") or line.strip() == "": continue # comment or empty line
     terms = line.strip().split("|")
-    if terms == [""]: continue
+    name = terms[0]
+    if name.startswith("*"): name = name[1:]
     topic_areas.append({
-        "name": terms[0],
+        "name": name,
         "terms": set(terms),
-        "slug": re.sub(r"\W+", "-", terms[0].lower()),
+        "slug": re.sub(r"\W+", "-", name.lower()),
+        "sort": 1,
     })
 topic_areas.append({
     "name": "Uncategorized",
     "terms": set(),
     "slug": "uncategorized",
+    "sort": 0,
 })
 
 def load_all_reports():
@@ -81,7 +85,7 @@ def index_by_topic(reports):
                "reports": [r for r in reports if topic["slug"] in set(t["slug"] for t in r.get("topics") or [{"slug": "uncategorized"}])],
            }
            for topic
-           in sorted(topic_areas, key = lambda topic : topic["name"])]
+           in sorted(topic_areas, key = lambda topic : (topic["sort"], topic["name"]))]
 
 
 def generate_static_page(fn, context, output_fn=None):
@@ -239,14 +243,23 @@ def generate_report_page(report):
             break # don't process other formats
 
     # Assign topic areas.
-    if most_recent_text:
-        topics = []
-        for topic in topic_areas:
-            for term in topic["terms"]:
-                if term in most_recent_text:
+    topics = []
+    for topic in topic_areas:
+        for term in topic["terms"]:
+            if term.startswith("*"):
+                # search title only
+                term = term[1:]
+                if term.lower() in report["versions"][0]["title"].lower() or term.lower() in report["versions"][0]["summary"].lower():
                     topics.append(topic)
                     break # only add topic once
-        report["topics"] = sorted(topics, key = lambda topic : topic["name"])
+            elif most_recent_text and term in most_recent_text:
+                topics.append(topic)
+                break # only add topic once
+            elif term in report["versions"][0]["title"] or term in report["versions"][0]["summary"]:
+                # if no text is available, fall back to title and summary
+                topics.append(topic)
+                break # only add topic once
+    report["topics"] = sorted(topics, key = lambda topic : topic["name"])
 
     # Generate the report HTML page.
     generate_static_page("report.html", {
