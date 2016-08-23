@@ -7,5 +7,4 @@ export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
 s3cmd sync --delete-removed -r --guess-mime-type -F --reduced-redundancy build/ s3://$AWS_WEBSITE_S3_BUCKET/
 
 # MIME-type guessing on the CSS file is broken, so fix the MIME type.
-s3cmd modify s3://$AWS_WEBSITE_S3_BUCKET/static/main.css -m text/css
-
+s3cmd put -m text/css static/main.css s3://$AWS_WEBSITE_S3_BUCKET/static/main.css
