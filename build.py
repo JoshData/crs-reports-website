@@ -276,11 +276,12 @@ def generate_report_page(report):
         os.link(os.path.join(REPORTS_DIR, "reports/%s.json" % report["number"]),
                 json_fn)
 
-    # Generate thumbnail image.
-    os.system("pdftoppm -png -singlefile -scale-to-x 600 -scale-to-y -1 %s %s" % (
-        os.path.join(REPORTS_DIR, most_recent_pdf_fn),
-        os.path.join(BUILD_DIR, get_report_url_path(report, '')) # pdftoppm adds ".png"
-    ))
+    # Generate thumbnail image, if a PDF exists.
+    if most_recent_pdf_fn and not os.environ.get("FAST"):
+        os.system("pdftoppm -png -singlefile -scale-to-x 600 -scale-to-y -1 %s %s" % (
+            os.path.join(REPORTS_DIR, most_recent_pdf_fn),
+            os.path.join(BUILD_DIR, get_report_url_path(report, '')) # pdftoppm adds ".png"
+        ))
 
     # Save current metadata hash so we know this file has been processed.
     # Also save the topics, since they're dynamically computed and we
