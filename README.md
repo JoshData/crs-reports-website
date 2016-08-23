@@ -14,7 +14,7 @@ The website is driven by several resources in Amazon Web Services.
 
 3) A second AWS S3 bucket which holds the public, static files of the website. Although an S3 bucket _can_ serve the website directly, it cannot do so with HTTPS, so we don't use that. The bucket itself is therefore not public.
 
-4) An AWS CloudFront "distribution", whose "origin" is configured to be the AWS S3 bucket (3). The CloudFront "distribution" makes the website available to the world on the web. The distribution is set with a custom cache policy and a default TTL of about 14400 (4 hours), so that the site updates eventually after new files are published to the public website S3 bucket (3). Amazon Certificate Manager (ACM) is used to provision a SSL certificate for the HTTPS site.
+4) An AWS CloudFront "distribution", whose "origin" is configured to be the AWS S3 bucket (3). The CloudFront "distribution" makes the website available to the world on the web. The distribution is set with the following options: a) 'Restrict Bucket Access', b) a custom cache policy and a default TTL of about 14400 (4 hours) so that the site updates eventually after new files are published, and c) Amazon Certificate Manager (ACM) is used to provision a SSL certificate for the HTTPS site.
 
 5) An IAM (Identity and Access Management) account which has read-only access to (1) and read/write access to (3). The IAM account's credentials are stored on the server (2). We use an IAM account and not a master AWS account's credentials so that we only work with the permissions we need.
 
@@ -59,7 +59,7 @@ Grant the IAM account read-only access to the private reports archive by adding 
 		]
 	}
 
-Grant the IAM account full access to the public website bucket in Properties > Permissions > Add bucket policy. Replace `BUCKET_NAME_HERE` with the _public website bucket name_ and `IAM_USER_ARN_HERE` with the IAM user ARN in the four places they appear:
+Grant the IAM account full access to the public website bucket in Properties > Permissions > Add bucket policy. Replace `BUCKET_NAME_HERE` with the _public website bucket name_ and `IAM_USER_ARN_HERE` with the IAM user ARN in the four places they appear. **If you already created the CloudFront distribution, this bucket will already have an access policy granting CloudFront access. You will have to merge the policies.**
 
 	{
 	  "Id": "Policy1471615487213",
