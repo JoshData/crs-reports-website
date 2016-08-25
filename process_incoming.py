@@ -6,6 +6,7 @@ import glob
 import os
 import os.path
 import json
+import re
 
 import tqdm
 import bleach
@@ -174,6 +175,11 @@ def clean_html(content):
             raise ValueError("HTML page didn't have the expected blockquote.")
         content.tag = "div"
 
+    def scrub_text(text):
+        # Scrub crs.gov email addresses from the text.
+        text = re.sub(r"[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+@crs\.gov", "[scrubbed]", text)
+        return text
+
     # Pr-process some tags.
     allowed_classes = { "titleline", "authorline", "dateline", "Authors", "Author", "CoverDate" }
     for tag in [content] + content.findall(".//*"):
@@ -182,6 +188,10 @@ def clean_html(content):
 
         # Remove the XHTML namespace to make processing easier.
         tag.tag = tag.tag.replace("{http://www.w3.org/1999/xhtml}", "")
+
+        # Scrub the text.
+        if tag.text is not None: tag.text = scrub_text(tag.text)
+        if tag.tail is not None: tag.tail = scrub_text(tag.tail)
 
         # Kill mailto: links, which have author emails, which we want to scrub.
         if 'href' in tag.attrib and tag.attrib['href'].lower().startswith("mailto:"):
