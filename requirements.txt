@@ -1,6 +1,6 @@
 jinja2
 commonmark==0.7.2
-html5lib
+html5lib==0.9999999
 bleach
 lxml
 tqdm
