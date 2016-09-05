@@ -5,13 +5,19 @@ Every CRS Report
 {% endblock %}
 
 {% block head %}
+
+<meta property="og:title" content="EveryCRSReport.com: Every CRS Report" />
+<meta name="description" content="EveryCRSReport publishes all current, non-confidential Congressional Research Service (CRS) Reports in one place, for free, for everyone.">
+
 <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/rss.xml"/>
 <meta property="og:title" content="Every CRS Report" />
 {% endblock %}
 
 {% block body %}
+<h1>EveryCRSReport.com</h1>
+<div id="subhead">Releasing {{reports_count|intcomma}} CRS Reports to the General Public</div>
 <div style="margin-top: 50px; font-size: 120%">
-<p>We&rsquo;s tracking {{reports_count|intcomma}} reports from the Congressional Research Service published from {{first_report_date|date}} to {{last_report_date|date}}.</p>
+<p>Reports by Congress’s think tank, the Congressional Research Service, provide valuable insight and non-partisan analysis of important topics that are the subject of public discussion. Until Congress does so, we will publish all the current non-confidential reports in one place, for free, for everyone to use. (<a href="/about.html">More about this site</a>)</p>
 </div>
 
 <div style="height: 5em">

@@ -341,8 +341,6 @@ if __name__ == "__main__":
     print("Static pages...")
     generate_static_pages({
         "reports_count": len(reports),
-        "first_report_date": reports[-1]['versions'][-1]['date'],
-        "last_report_date": reports[0]['versions'][0]['date'],
         "topics": by_topic,
         "recent_reports": reports[0:6],
     })

@@ -13,7 +13,18 @@ td { /* for CRS footnotes */
     vertical-align: top;
 }
 
+footer {
+    color: #555;
+}
+
 /* HOME PAGE */
+
+#subhead {
+    font-family: 'Lato', sans-serif;
+    font-size: 16px;
+}
+
+/* TOPICS PAGE */
 
 #topic-areas {
     max-width: 1000px;
