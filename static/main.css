@@ -1,5 +1,13 @@
 @import url(https://fonts.googleapis.com/css?family=Lato:900);
 
+a {
+    text-decoration: underline;
+    color: #23527c;
+}
+    .navbar a, .social-links a {
+        text-decoration: none;
+    }
+
 h1, h2 {
     font-family: 'Lato', sans-serif;
 }
@@ -13,13 +21,22 @@ td { /* for CRS footnotes */
     vertical-align: top;
 }
 
+#donate-button a {
+    background-color: #878f7a;
+    color: white;
+}
+
 footer {
     color: #555;
 }
 
-#donate-button a {
-    background-color: #878f7a;
-    color: white;
+footer a {
+    color: #79816e;
+}
+
+.social-links a {
+    display: inline-block;
+    margin-right: 1em;
 }
 
 /* HOME PAGE */
