@@ -4,7 +4,7 @@ a {
     text-decoration: underline;
     color: #23527c;
 }
-    .navbar a, .social-links a {
+    .navbar a, .social-links a, footer #legal-links a {
         text-decoration: none;
     }
 
@@ -30,9 +30,16 @@ footer {
     color: #555;
 }
 
-footer a {
-    color: #79816e;
-}
+    footer a {
+        color: #79816e;
+    }
+
+    footer #legal-links {
+        border-top: 1px solid #EEE;
+        padding-top: 1em;
+        margin-top: 1em;
+        font-size: 10px;
+    }
 
 .social-links a {
     display: inline-block;
