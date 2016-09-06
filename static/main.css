@@ -17,6 +17,11 @@ footer {
     color: #555;
 }
 
+#donate-button a {
+    background-color: #878f7a;
+    color: white;
+}
+
 /* HOME PAGE */
 
 #subhead {
