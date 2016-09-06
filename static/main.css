@@ -4,7 +4,7 @@ a {
     text-decoration: underline;
     color: #23527c;
 }
-    .navbar a, .social-links a, footer #legal-links a {
+    a.btn, .navbar a, .social-links a, footer #legal-links a {
         text-decoration: none;
     }
 
