@@ -177,7 +177,7 @@ def clean_html(content):
 
     def scrub_text(text):
         # Scrub crs.gov email addresses from the text.
-        text = re.sub(r"[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+@crs\.gov", "[scrubbed]", text)
+        text = re.sub(r"[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+@crs\.gov", "[email address scrubbed]", text)
         return text
 
     # Pr-process some tags.
