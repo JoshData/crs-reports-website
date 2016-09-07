@@ -26,15 +26,6 @@ def write_report_json_files():
         process_file(transform_report_metadata, report,
             os.path.join(REPORTS_DIR, "reports", report[0]["ProductNumber"] + ".json"))
 
-        # Also create a hard link to the PDF in the incoming directory.
-        # (The HTML is handled below because it is cleaned.)
-        for reportversion in report:
-           for versionformat in reportversion["FormatList"]:
-               if versionformat["FormatType"] == "PDF":
-                   fn = versionformat["_"]["filename"] # files/QQQ_YYY...
-                   if not os.path.exists(os.path.join(REPORTS_DIR, fn)):
-                       os.link(os.path.join(INCOMING_DIR, fn), os.path.join(REPORTS_DIR, fn))
-
 
 def load_reports_metadata():
     # Load all of the CRS reports metadata into memory. We do this because each report
@@ -132,20 +123,26 @@ def transform_report_metadata(meta):
     ]), indent=2)
 
 
-def clean_html_files():
+def clean_files():
     # Use a multiprocessing pool to divide the load across processors.
     from multiprocessing import Pool
     pool = Pool()
 
-    # For every HTML file, if we haven't yet processed it, then process it.
-    # We'll skip files that we've processed. If we change the clean_html
-    # logic then you should delete the whole reports/html directory and
-    # re-run this.
+    # For every HTML/PDF file, if we haven't yet processed it, then process it.
+    # We'll skip files that we've processed already. Since the files have their
+    # own SHA1 hash in their file name, we know once we processed it that it's
+    # done. If we change the logic in this module then you should delete the
+    # whole reports/files directory and re-run this.
     open_tasks = []
-    for fn in tqdm.tqdm(sorted(glob.glob(os.path.join(INCOMING_DIR, "files/*.html"))), desc="cleaning HTML"):
+    for fn in tqdm.tqdm(sorted(glob.glob(os.path.join(INCOMING_DIR, "files/*"))), desc="cleaning HTML/PDFs"):
         out_fn = os.path.join(REPORTS_DIR, "files", os.path.basename(fn))
         if not os.path.exists(out_fn):
-            ar = pool.apply_async(process_file, [clean_html, fn, out_fn])
+            if fn.endswith(".html"):
+                ar = pool.apply_async(process_file, [clean_html, fn, out_fn])
+            elif fn.endswith(".pdf"):
+                ar = pool.apply_async(clean_pdf, [fn, out_fn])
+            else:
+                continue
             open_tasks.append(ar)
         if len(open_tasks) > 20:
             # So that the tqdm progress meter works, wait synchronously
@@ -248,6 +245,16 @@ def clean_html(content):
     return content
 
 
+def clean_pdf(in_file, out_file):
+    try:
+        from contact_remover import remove_contacts_in_pdf
+        remove_contacts_in_pdf(in_file, out_file)
+    except Exception as e:
+        print(in_file)
+        print("\t", e)
+        return
+
+
 def process_file(func, content_fn, out_fn):
     #print(out_fn, "...")
 
@@ -279,8 +286,8 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(REPORTS_DIR, 'reports'), exist_ok=True)
     os.makedirs(os.path.join(REPORTS_DIR, 'files'), exist_ok=True)
 
-    # Clean/sanitize the HTML files.
-    clean_html_files()
+    # Clean/sanitize the HTML and PDF files.
+    clean_files()
 
     # Combine and transform the report JSON.
     write_report_json_files()

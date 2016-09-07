@@ -113,6 +113,8 @@ Create a new file named `aws_credentials.txt` and put in it the AWS IAM user's a
 	AWS_INCOMING_S3_BUCKET=...
 	AWS_WEBSITE_S3_BUCKET=...
 
+Copy [contact_remover.py](https://github.com/antoinemcgrath/contact_removal/blob/master/contact_remover.py) into the same directory as these files.
+
 ## Running the site generator
 
 To generate the website's static files, follow these steps.
@@ -121,11 +123,11 @@ Fetch the latest CRS reports metadata and files from our private archive (saves 
 
 	./fetch_reports_files.sh
 
-Then pre-process the files, which creates new JSON and sanitizes the HTML (saves the new files into `reports/`):
+Then pre-process the files, which creates new JSON and sanitizes the HTML and PDFs (saves the new files into `reports/`):
 
 	./process_incoming.py
 
-The HTML sanitization step in `process_incoming.py` is quite slow. But it will only process new files on each run. If our code changes and the sanitization process has been changed, delete the whole `reports/` directory so it re-processes everything from scratch.
+The sanitization step in `process_incoming.py` is quite slow. But it will only process new files on each run. If our code changes and the sanitization process has been changed, delete the whole `reports/` directory so it re-processes everything from scratch.
 
 The above steps are the only steps that require access to our private archive. If you don't have access to our private archive, you can grab some of our public files and put them into the `reports/` directory (TODO: say more about this).
 
