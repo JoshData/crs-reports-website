@@ -106,14 +106,22 @@ On a new Linux machine (instructions here for an AWS Amazon Linux instance):
 	sudo pip install s3cmd
 	sudo pip-3.4 install -r requirements.txt
 
+Get the PDF sanitization script and install QPDF, which on Amazon Linux must unfortunately be compiled from source:
+
+	wget https://raw.githubusercontent.com/JoshData/contact_removal/master/contact_remover.py
+
+	sudo yum install gcc-c++ pcre-devel
+	wget http://downloads.sourceforge.net/project/qpdf/qpdf/6.0.0/qpdf-6.0.0.tar.gz
+	tar -zxf qpdf-6.0.0.tar.gz
+	(cd qpdf-6.0.0/ && ./configure && make && sudo make install)
+
+
 Create a new file named `aws_credentials.txt` and put in it the AWS IAM user's access keys that have access to 1) the private S3 bucket holding the CRS reports archive and 2) the public S3 bucket holding the website content. Also set the names of the S3 buckets:
 
 	AWS_ACCESS_KEY_ID=...
 	AWS_SECRET_ACCESS_KEY=...
 	AWS_INCOMING_S3_BUCKET=...
 	AWS_WEBSITE_S3_BUCKET=...
-
-Copy [contact_remover.py](https://github.com/antoinemcgrath/contact_removal/blob/master/contact_remover.py) into the same directory as these files.
 
 ## Running the site generator
 
