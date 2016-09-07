@@ -53,6 +53,35 @@ footer {
     font-size: 16px;
 }
 
+#search-block {
+    margin: 4em auto 3em auto;
+    max-width: 55em;
+}
+#search-block .our-gsc-wrapper {
+    min-height: 42px;
+}
+#search-block input {
+    font-size: 22px;
+    background-size: auto 70% !important;
+    height: 34px;
+}
+.gsc-control-cse { padding: 0 !important; }
+.gsc-search-box { padding: 0 !important; }
+.gsc-input-box { height: auto !important; }
+.our-links {
+    text-align: right;
+    margin-top: 1em;
+    margin-right: 2em;
+}
+
+#recent-reports h2 {
+    font-size: 18px;
+    font-weight: normal;
+}
+#recent-reports .report-title {
+    font-weight: normal;
+}
+
 /* TOPICS PAGE */
 
 #topic-areas {

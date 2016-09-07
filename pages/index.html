@@ -20,7 +20,17 @@ Every CRS Report
 	Reports by Congress’s think tank, the Congressional Research Service, provide valuable insight and non-partisan analysis of important topics that are the subject of public discussion. Until Congress does so, we will publish all the current non-confidential reports in one place, for free, for everyone to use. (<a href="/about.html">More about this site</a>)
 </p>
 
-<h2 style="font-size: 18px">
+<div id="search-block">
+	<div class="our-gsc-wrapper">
+		<gcse:search></gcse:search>
+	</div>
+	<div class="our-links">
+		<a href="/topics.html">Browse by Topic</a>
+	</div>
+</div>
+
+<div id="recent-reports">
+<h2>
   Recently Published Reports
   <a href="/rss.xml" title="RSS feed for new and updated reports"><img src="/static/rss.png" style="height: 1em; vertical-align: top;" alt="RSS icon"></a>
 </h2>
@@ -34,5 +44,20 @@ Every CRS Report
     {% if loop.index is divisibleby 2 %}<div class="hidden-xs clearfix"></div>{% endif %}
     {% endfor %}
 </div>
+</div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function() {
+    var cx = '014986166530157065869:wey2cphd9m0';
+    var gcse = document.createElement('script');
+    gcse.type = 'text/javascript';
+    gcse.async = true;
+    gcse.src = 'https://cse.google.com/cse.js?cx=' + cx;
+    var s = document.getElementsByTagName('script')[0];
+    s.parentNode.insertBefore(gcse, s);
+  })();
+</script>
 {% endblock %}
