@@ -48,9 +48,10 @@ td { /* for CRS footnotes */
     }
 
 #donate-button a {
-    background-color: #22AA99;
+    background-color: #7C2326;
     color: white;
     font-weight: bold;
+    text-transform: uppercase;
 }
 
 #body {
@@ -59,16 +60,11 @@ td { /* for CRS footnotes */
 }
 
 footer {
-    padding: 2em 0;
+    padding: 1.5em 0;
     color: #EEE;
     font-family: 'Roboto Slab', sans-serif;
     text-align: center;
 }
-    footer .wrapper {
-        padding: 1em 0;
-        background-color: #234A77;
-    }
-
     footer a {
         color: #FAFAF0;
         text-decoration: none;
@@ -117,7 +113,8 @@ footer {
 .our-links {
     text-align: right;
     margin-top: 1em;
-    margin-right: 2em;
+    margin-right: 140px;
+    font-size: 17px;
 }
 
 #recent-reports h2 {
