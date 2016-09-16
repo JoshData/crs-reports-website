@@ -32,7 +32,7 @@
     <!--[if lt IE 8]><p>Internet Explorer version 8 or any modern web browser is required to use this website, sorry.<![endif]-->
     <!--[if gt IE 7]><!-->
 
-    <nav class="navbar navbar-default">
+    <nav class="navbar">
       <div class="container">
         <div class="navbar-header">
           <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar-collapse" aria-expanded="false">
@@ -56,22 +56,38 @@
       </div><!-- /.container-fluid -->
     </nav>
 
-    <div class="container">
-	{% block body %}
-	{% endblock %}
-    </div> <!-- /container -->
-
-    <hr>
-
-    <div class="container">
-      <footer>
-        <p>EveryCRSReport.com is a project of <a href="https://demandprogress.org/">Demand Progress</a>. For more see <a href="/about.html">About This Site</a>. Please <a href="https://secure.actblue.com/contribute/page/demanding">support our work with a donation</a>.</p>
-        {% include "social-media-links.html" %}
-        <div id="legal-links">
-            <a href="/privacy.html">Privacy Policy</a>
+    <div id="body">
+        {% block body_wide %}
+        <div class="container">
+    	{% block body %}
+    	{% endblock %}
+        </div> <!-- /container -->
+        {% endblock %}
+    </div>
+    
+    <footer>
+     <div class="wrapper">
+      <div class="container">
+        <div class="row">
+            <div class="col-sm-2">
+                <a href="/about.html">About</a>
+            </div>
+            <div class="col-sm-2">
+                <a href="https://twitter.com/EveryCRSReport"><span>@EveryCRSReport</span></a>
+            </div>
+            <div class="col-sm-2">
+                <a href="https://github.com/joshdata/crs-reports-website"><span>GitHub</span></a>
+            </div>
+            <div class="col-sm-2">
+                <a href="/privacy.html">Privacy</a>
+            </div>
+            <div class="col-sm-2">
+                <a href="https://secure.actblue.com/contribute/page/demanding">Donate</a>
+            </div>
         </div>
-      </footer>
-    </div> <!-- /container -->
+      </div> <!-- /container -->
+     </div>
+    </footer>
 
 
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.2/jquery.min.js" integrity="sha256-lZFHibXzMHo3GGeehn1hudTAP3Sc0uKXBXAzHX1sjtk=" crossorigin="anonymous"></script>

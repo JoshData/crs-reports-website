@@ -11,41 +11,70 @@ Every CRS Report
 
 <link rel="alternate" type="application/rss+xml" title="RSS Feed" href="/rss.xml"/>
 <meta property="og:title" content="Every CRS Report" />
+
+<style>
+#body {
+  padding-top: 0;
+}
+#jumbotron {
+  background-image: url('/static/homepage-banner-large.jpg');
+  background-size: cover;
+  background-position: 50% 50%;
+  padding: 2em 1em;
+  font-size: 22px;
+  line-height: 145%;
+  font-family: 'Roboto Slab', sans-serif;
+  color: black;
+  border-bottom: 2px solid #EEE;
+}
+  @media screen and (max-width: 1024px) {
+    #jumbotron {
+      background-image: url('/static/homepage-banner-small.jpg');
+    }
+  }
+</style>
 {% endblock %}
 
-{% block body %}
-<h1>EveryCRSReport.com</h1>
-<div id="subhead">Releasing {{reports_count|intcomma}} CRS Reports to the General Public</div>
-<p style="margin: 30px 0 0 0; font-size: 120%">
-	Reports by Congress’s think tank, the Congressional Research Service, provide valuable insight and non-partisan analysis of important topics that are the subject of public discussion. Until Congress does so, we will publish all the current non-confidential reports in one place, for free, for everyone to use. (<a href="/about.html">More about this site</a>)
-</p>
+{% block body_wide %}
 
-<div id="search-block">
-	<div class="our-gsc-wrapper">
-		<gcse:search></gcse:search>
-	</div>
-	<div class="our-links">
-		<a href="/topics.html">Browse by Topic</a>
-	</div>
+<div id="jumbotron">
+  <div class="container">
+    We&rsquo;re publishing reports by Congress’s think tank, the Congressional Research Service, which provides valuable insight and non-partisan analysis of important topics that are the subject of public discussion.
+    <a href="/about.html">More about this site</a>
+  </div>
 </div>
 
-<div id="recent-reports">
-<h2>
-  Recently Published Reports
-  <a href="/rss.xml" title="RSS feed for new and updated reports"><img src="/static/rss.png" style="height: 1em; vertical-align: top;" alt="RSS icon"></a>
-</h2>
-<div class="row">
-{% for report in recent_reports %}
-    <div class="col-sm-6 crs-report">
-        <p class="report-title"><a href="/reports/{{report.number}}.html">{{report.versions[0].title}}</a></p>
-        <p class="report-metadata">{{report.number}} {{report.versions[0].date|date}}</p>
-        <div class="report-summary">{{report.versions[0].summary|truncate(140)}}</div>
-    </div>
-    {% if loop.index is divisibleby 2 %}<div class="hidden-xs clearfix"></div>{% endif %}
-    {% endfor %}
-</div>
-</div>
+<div class="container">
 
+  <div id="search-block">
+  	<div class="our-gsc-wrapper">
+  		<gcse:search></gcse:search>
+  	</div>
+  	<div class="our-links">
+  		<a href="/topics.html">Browse by Topic</a>
+  	</div>
+  </div>
+
+  <div id="recent-reports">
+  <h2>
+    Recently Published Reports
+    <a href="/rss.xml" title="RSS feed for new and updated reports"><img src="/static/rss.png" style="height: 1em; vertical-align: top;" alt="RSS icon"></a>
+  </h2>
+  <div class="row">
+  {% for report in recent_reports %}
+      <div class="col-sm-6 crs-report">
+          <p class="report-title"><a href="/reports/{{report.number}}.html">{{report.versions[0].title}}</a></p>
+          <p class="report-metadata">{{report.number}} {{report.versions[0].date|date}}</p>
+          <div class="report-summary">{{report.versions[0].summary|truncate(140)}}</div>
+      </div>
+      {% if loop.index is divisibleby 2 %}<div class="hidden-xs clearfix"></div>{% endif %}
+      {% endfor %}
+  </div>
+  </div>
+
+  <div id="subhead">EveryCRSReport.com is making {{reports_count|intcomma}} CRS reports to the general public.</div>
+
+</div> <!-- /container -->
 {% endblock %}
 
 {% block scripts %}

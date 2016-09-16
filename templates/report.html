@@ -20,6 +20,13 @@
 
 <div class="row">
     <div class="col-sm-8">
+        <div class="report-summary">{{report.versions[0].summary|format_summary|safe}}</div>
+
+        <p class="report-authors">Author(s): {% for author in report.versions[0].authors %}{{author}}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+    </div> <!-- /col -->
+
+    <div class="col-sm-4">
+    <div id="sidebar-metadata">
         {% for format in report.versions[0].formats %}
              {% if format.format == "PDF" %}
                  <div id="download-link">
@@ -28,13 +35,6 @@
              {% endif %}
         {% endfor %}
 
-        <div class="report-summary">{{report.versions[0].summary|format_summary|safe}}</div>
-
-        <p class="report-authors">Author(s): {% for author in report.versions[0].authors %}{{author}}{% if not loop.last %}, {% endif %}{% endfor %}</p>
-    </div> <!-- /col -->
-
-    <div class="col-sm-4">
-    <div id="sidebar-metadata">
        <div class="panel panel-default">
        <div class="panel-heading">Revision History</div>
        <div class="panel-body">

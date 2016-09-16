@@ -1,4 +1,9 @@
-@import url(https://fonts.googleapis.com/css?family=Lato:900);
+@import url(https://fonts.googleapis.com/css?family=Lato:500,900);
+@import 'https://fonts.googleapis.com/css?family=Roboto+Slab';
+
+body {
+    background-color: #23527c;
+}
 
 a {
     text-decoration: underline;
@@ -21,18 +26,57 @@ td { /* for CRS footnotes */
     vertical-align: top;
 }
 
+.navbar {
+  margin: 0;
+}
+
+    .navbar-brand {
+      font-family: 'Roboto Slab', sans-serif;
+      font-weight: bold;
+      letter-spacing: 1px;
+      font-size: 23px;
+    }
+
+    .navbar a {
+        color: white;        
+    }
+        .navbar li:hover a {
+            background-color: #224466;        
+        }
+    .navbar .icon-bar {
+        background-color: #EEF;
+    }
+
 #donate-button a {
-    background-color: #878f7a;
+    background-color: #22AA99;
     color: white;
+    font-weight: bold;
+}
+
+#body {
+    background-color: white;
+    padding: 2em 0;
 }
 
 footer {
-    color: #555;
+    padding: 2em 0;
+    color: #EEE;
+    font-family: 'Roboto Slab', sans-serif;
+    text-align: center;
 }
+    footer .wrapper {
+        padding: 1em 0;
+        background-color: #234A77;
+    }
 
     footer a {
-        color: #79816e;
+        color: #FAFAF0;
+        text-decoration: none;
     }
+        footer a:hover {
+            color: #FFFFDD;
+            text-decoration: underline;
+        }
 
     footer #legal-links {
         border-top: 1px solid #EEE;
@@ -49,8 +93,10 @@ footer {
 /* HOME PAGE */
 
 #subhead {
+    margin: 1.5em 0;
     font-family: 'Lato', sans-serif;
     font-size: 16px;
+    text-align: center;
 }
 
 #search-block {
@@ -110,10 +156,10 @@ footer {
 /* REPORT PAGES */
 
 #download-link {
-    float: right;
-    margin: 0 0 1.5em 1.5em;
+    margin-bottom: 2em;
 }
     #download-link a {
+        width: 100%;
         font-size: 120%;
     }
 
