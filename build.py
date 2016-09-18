@@ -20,7 +20,7 @@ REPORTS_DIR = "reports"
 BUILD_DIR = "build"
 CACHE_DIR = "cache"
 SITE_NAME = "EveryCRSReport.com"
-SITE_URL = "https://EveryCRSReport.com"
+SITE_URL = "https://www.EveryCRSReport.com"
 
 us_eastern_tz = pytz.timezone('America/New_York')
 utc_tz = pytz.timezone("UTC")
