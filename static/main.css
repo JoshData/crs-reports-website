@@ -191,3 +191,9 @@ footer {
         #topics p.heading {
             font-weight: bold;
         }
+
+#report-content {
+    margin-top: 1em;
+    border-top: 1px solid #CCC;
+    padding-top: 1em;
+}

@@ -239,6 +239,8 @@ def clean_html(content):
             "*": ["title", "class"],
             "a": link_filter,
             "img": image_filter,
+            "td": ["colspan", "rowspan"],
+            "th": ["colspan", "rowspan"],
         }
     )
 
