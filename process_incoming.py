@@ -248,6 +248,7 @@ def clean_html(content):
 
 
 def clean_pdf(in_file, out_file):
+    # Clean the PDF by removing author contact information.
     try:
         from contact_remover import remove_contacts_in_pdf
         remove_contacts_in_pdf(in_file, out_file)
@@ -256,6 +257,11 @@ def clean_pdf(in_file, out_file):
         print("\t", e)
         return
 
+    # Generate a thumbnail image of the PDF.
+    os.system("pdftoppm -png -singlefile -scale-to-x 600 -scale-to-y -1 %s %s" % (
+         out_file,
+         out_file.replace(".pdf", "") # pdftoppm adds ".png" to the end of the file name
+     ))
 
 def process_file(func, content_fn, out_fn):
     #print(out_fn, "...")
