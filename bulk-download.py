@@ -22,54 +22,57 @@ import json
 
 api_base_url = "http://54.183.143.173:8000/"
 
-def hash_file(fn):
-	# Computes the SHA1 hash of a file's contents.
-	with open(fn, 'rb') as f:
-	    hasher = hashlib.sha1()
-	    hasher.update(f.read())
-	    return hasher.hexdigest()
+def download_file(url, fn, expected_digest):
+    # Do we have it already?
+    if os.path.exists(fn):
+        # Compute the SHA1 hash of the existing file's contents.
+        with open(fn, 'rb') as f:
+            hasher = hashlib.sha1()
+            hasher.update(f.read())
+            digest = hasher.hexdigest()
+
+        # Is the existing file up to date?
+        if digest == expected_digest or expected_digest is None:
+            # No need to download
+            return
+
+    # Download and save the file.
+    print(fn + "...")
+    with open(fn, 'wb') as f:
+        try:
+            with urllib.request.urlopen(url) as resp:
+                f.write(resp.read())
+        except urllib.error.HTTPError as e:
+            print("", e)
 
 # Ensure output directories exist.
-os.makedirs("reports/documents", exist_ok=True)
+os.makedirs("reports/reports", exist_ok=True)
 os.makedirs("reports/files", exist_ok=True)
 
 # Execute an HTTP request to get the CSV listing file.
 with urllib.request.urlopen(api_base_url + "reports.csv") as resp:
-	# Parse it as a CSV file.
-	reader = csv.DictReader(io.StringIO(resp.read().decode("utf8")))
+    # Parse it as a CSV file.
+    reader = csv.DictReader(io.StringIO(resp.read().decode("utf8")))
 
 # Fetch reports.
 for report in reader:
-	# Where will we save this report?
-	metadata_fn = "reports/" + report["url"] # i.e. reports/reports/R1234.json
+    # Where will we save this report?
+    metadata_fn = "reports/" + report["url"] # i.e. reports/reports/R1234.json
 
-	# Do we have it already and is it up to date?
-	if not os.path.exists(metadata_fn) or report["sha1"] != hash_file(metadata_fn):
-		# Download and save the file.
-		print(metadata_fn + "...")
-		with open(metadata_fn, 'wb') as f:
-			with urllib.request.urlopen(api_base_url + report["url"]) as resp:
-				f.write(resp.read())
+    # Download it if we don't have it or it's modified.
+    download_file(api_base_url + report["url"], metadata_fn, report["sha1"])
 
-	# Also download the PDF/HTML files for the report.
-	with open(metadata_fn) as f:
-		metadata = json.load(f)
+    # Also download the PDF/HTML files for the report.
+    # Parse the metadata JSON file to figure out what the PDF/HTML file names are.
+    with open(metadata_fn) as f:
+        metadata = json.load(f)
 
-		# Each report may have multiple versions published.
-		for version in metadata["versions"]:
-			# Each report version is published in zero or more file formats.
-			for report_file in version["formats"]:
-				# Where will we save this file?
-				file_fn = "reports/" + report_file["filename"]
+        # Each report may have multiple versions published.
+        for version in metadata["versions"]:
+            # Each report version is published in zero or more file formats.
+            for report_file in version["formats"]:
+                # Where will we save this file?
+                file_fn = "reports/" + report_file["filename"]
 
-				# Do we have it already and is it up to date?
-				if not os.path.exists(file_fn) or report_file["sha1"] != hash_file(file_fn):
-					# Download and save the file.
-					print(file_fn + "...")
-					with open(file_fn, 'wb') as f:
-						try:
-							with urllib.request.urlopen(api_base_url + report_file["filename"]) as resp:
-								f.write(resp.read())
-						except urllib.error.HTTPError as e:
-							print("", e)
-
+                # Download it if we don't have it or it's modified.
+                download_file(api_base_url + report_file["filename"], file_fn, None)
