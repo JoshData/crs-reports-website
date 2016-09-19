@@ -74,7 +74,7 @@ def load_all_reports():
         for version in report["versions"]:
             # Parse the datetimes.
             version["date"] = parse_dt(version["date"])
-            version["fetched"] = parse_dt(version["fetched"], hasmicro=True, utc=True)
+            #version["fetched"] = parse_dt(version["fetched"], hasmicro=True, utc=True)
 
             # Sort the version files - put PDF first.
             version["formats"].sort(key = lambda fmt : fmt["format"] == "PDF", reverse=True)

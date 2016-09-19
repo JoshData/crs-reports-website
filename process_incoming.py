@@ -116,7 +116,7 @@ def transform_report_metadata(meta):
                     [{ "source": "IBCList", "id": int(entry["PrdsCliItemId"]), "name": entry["CliTitle"] } for entry in mm["IBCList"]]
                   + [{ "source": "CongOpsList", "id": int(entry["PrdsCliItemId"]), "name": entry["CliTitle"]} for entry in mm["CongOpsList"]]
                     ), # TODO: ChildIBCs?
-                ("fetched", m["_fetched"]), # date we picked up this report version
+                #("fetched", m["_fetched"]), # date we picked up this report version
             ])
             for mm in meta
         ]),
