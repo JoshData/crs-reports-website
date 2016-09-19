@@ -11,7 +11,7 @@
 #
 # * A static website in ./build.
 
-import sys, os, os.path, glob, shutil, collections, json, datetime, re, hashlib
+import sys, os, os.path, glob, shutil, collections, json, datetime, re, hashlib, csv
 
 import tqdm
 import pytz
@@ -57,8 +57,18 @@ def load_all_reports():
     reports = []
     for fn in glob.glob(os.path.join(REPORTS_DIR, "reports/*.json")):
         # Parse the JSON.
-        with open(fn) as f:
-            report = json.load(f)
+        with open(fn, 'rb') as f:
+            # compute a hash of the raw file content
+            f_content = f.read()
+            hasher = hashlib.sha1()
+            hasher.update(f_content)
+            digest = hasher.hexdigest()
+
+            # parse the JSON
+            report = json.loads(f_content.decode("utf8"))
+
+        # Remember the hash.
+        report["_hash"] = digest
 
         # Do some light processing to aid templates.
         for version in report["versions"]:
@@ -270,7 +280,8 @@ def generate_report_page(report):
 
     # Hard link the metadata file into place. Don't save the stuff we have in
     # memory because then we have to worry about avoiding changes in field
-    # order when round-tripping, and also hard linking is cheaper.
+    # order when round-tripping, the digest would change, and also hard linking
+    # is cheaper.
     json_fn = os.path.join(BUILD_DIR, get_report_url_path(report, '.json'))
     if not os.path.exists(json_fn):
         os.link(os.path.join(REPORTS_DIR, "reports/%s.json" % report["number"]), json_fn)
@@ -342,6 +353,13 @@ if __name__ == "__main__":
         "topics": by_topic,
         "recent_reports": reports[0:6],
     })
+
+    # Generate report listing file.
+    with open("build/reports.csv", "w") as f:
+        w = csv.writer(f)
+        w.writerow(["number", "latestPubDate", "url", "sha1"])
+        for report in reports:
+            w.writerow([ report["number"], report["versions"][0]["date"].date().isoformat(), get_report_url_path(report, ".json"), report["_hash"] ])
 
     # Copy static assets (CSS etc.).
     copy_static_assets()
