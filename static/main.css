@@ -17,6 +17,10 @@ h1, h2 {
     font-family: 'Lato', sans-serif;
 }
 
+h1 {
+    margin-bottom: 1em;
+}
+
 h2 {
     font-size: 22px;
     margin: 1.5em 0 .75em 0;
@@ -118,18 +122,36 @@ footer {
 }
 
 #recent-reports h2 {
-    font-size: 18px;
-    font-weight: normal;
+    font-size: 17px;
+    color: #555;
+}
+#recent-reports .crs-report {
+  margin: 1.5em 0;
+  border: 1px solid rgba(209,209,209,1);
+  -webkit-box-shadow: 5px 5px 3px 0px rgba(209,209,209,1);
+  -moz-box-shadow: 5px 5px 3px 0px rgba(209,209,209,1);
+  box-shadow: 5px 5px 3px 0px rgba(209,209,209,1);
+  padding: 1em;
 }
 #recent-reports .report-title {
-    font-weight: normal;
+    font-family: 'Lato', sans-serif;
+    font-size: 18px;
 }
+    #recent-reports .report-title a {
+        text-decoration: none;
+        color: #222;
+    }
+
 
 /* TOPICS PAGE */
 
 #topic-areas {
     max-width: 1000px;
+    margin-bottom: 30px;
 }
+  #topic-areas .topic-area {
+    margin-bottom: 1.5em;
+  }
   #topic-areas .count {
     font-size: 90%;
     color: #666;
@@ -151,6 +173,13 @@ footer {
 }
 
 /* REPORT PAGES */
+
+#report-page h1 {
+    margin-bottom: 15px;
+}
+#report-page .report-metadata {
+    margin-bottom: 30px;
+}
 
 #download-link {
     margin-bottom: 2em;

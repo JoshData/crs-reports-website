@@ -11,11 +11,14 @@
 
 {% block body %}
 
+<div id="report-page">
+
 <h1>{{report.versions[0].title}}</h1>
 
 <p class="report-metadata">
-    {{report.number}}
-    {% if report.versions[-1].date != report.versions[0].date %}{{report.versions[-1].date|date}}&ndash;{% endif %}{{report.versions[0].date|date}}
+    <code>{{report.number}}</code>
+    {% if report.versions[-1].date != report.versions[0].date %}{{report.versions[-1].date|date}} &ndash;{% endif %}
+    {{report.versions[0].date|date}}
 </p>
 
 <div class="row">
@@ -93,6 +96,7 @@
     </div> <!-- /col -->
 </div> <!-- /row -->
 
+</div>
 {% endblock %}
 
 {% block scripts %}
