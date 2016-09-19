@@ -198,25 +198,31 @@ def get_report_url_path(report, ext):
     # Construct a URL path.
     return "reports/%s%s" % (report["number"], ext)
 
-def dict_sha1(report):
+def dict_sha1(report, dependency_files):
     hasher = hashlib.sha1()
     hasher.update(json.dumps(report, sort_keys=True, default=str).encode("ascii"))
+    for fn in dependency_files:
+        with open(fn, "rb") as f:
+            hasher.update(f.read())
     return hasher.hexdigest()
 
 def generate_report_page(report):
-    # No need to process this report if it hasn't changed. But we need the
-    # cached topics. Never skip if given in the ONLY environment variable.
-    current_hash = dict_sha1(report)
-    hash_fn = os.path.join(CACHE_DIR, report["number"] + ".hash")
-    try:
-        with open(hash_fn) as f:
-            cache = json.load(f)
-            if cache["hash"] == current_hash \
-               and (not os.environ.get("ONLY") or report["number"] != os.environ.get("ONLY")):
-                report["topics"] = [t for t in topic_areas if t["slug"] in cache["topics"]]
+    output_fn = get_report_url_path(report, '.html')
+
+    # Regenerating a report page is a bit expensive so we'll skip it if a
+    # generated file already exists and is up to date.
+    current_hash = dict_sha1(report, ["build.py", "templates/master.html", "templates/report.html"])
+    if os.path.exists(os.path.join(BUILD_DIR, output_fn)):
+        with open(os.path.join(BUILD_DIR, output_fn)) as f:
+            existing_page = f.read()
+            m = re.search(r'<meta name="topics" content="(.*)" />\s+<meta name="source-content-hash" content="(.*)" />', existing_page)
+            if not m:
+                raise Exception("Generated report file doesn't match pattern.")
+            topics = m.group(1).split(",")
+            existing_hash = m.group(2)
+            if existing_hash == current_hash:
+                report["topics"] = [t for t in topic_areas if t["slug"] in topics]
                 return
-    except (IOError, ValueError):
-        pass
 
     # For debugging, skip this report if we didn't ask for it.
     # e.g. ONLY=R41360
@@ -275,8 +281,13 @@ def generate_report_page(report):
     generate_static_page("report.html", {
         "report": report,
         "html": most_recent_text,
-        "thumbnail_url": SITE_URL + "/" + get_report_url_path(report, '.png')
-    }, output_fn=get_report_url_path(report, '.html'))
+        "thumbnail_url": SITE_URL + "/" + get_report_url_path(report, '.png'),
+
+        # cache some information
+        "source_content_hash": current_hash,
+        "topics": ",".join([t["slug"] for t in report.get("topics",[])]),
+
+    }, output_fn=output_fn)
 
     # Hard link the metadata file into place. Don't save the stuff we have in
     # memory because then we have to worry about avoiding changes in field
@@ -293,13 +304,6 @@ def generate_report_page(report):
         thumbnail_fn = os.path.join(BUILD_DIR, get_report_url_path(report, '.png'))
         if os.path.exists(thumbnail_source_fn) and not os.path.exists(thumbnail_fn):
             os.link(thumbnail_source_fn, thumbnail_fn)
-
-    # Save current metadata hash so we know this file has been processed.
-    # Also save the topics, since they're dynamically computed and we
-    # need them later to generate the topic pages.
-    if not os.path.exists(CACHE_DIR): os.mkdir(CACHE_DIR)
-    with open(hash_fn, "w") as f:
-        json.dump({ "hash": current_hash, "topics": [t["slug"] for t in report.get("topics",[])] }, f)
 
 def create_feed(reports, title, fn):
     # The feed is a notice of new (versions of) reports, so collect the
