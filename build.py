@@ -288,9 +288,11 @@ def generate_report_page(report):
 
     # Hard link the thumbnail image of the most recent PDF, if it exists, as
     # the thumbnail for the report.
-    thumbnail_fn = os.path.join(BUILD_DIR, get_report_url_path(report, '.png'))
-    if most_recent_pdf_fn and not os.path.exists(thumbnail_fn):
-        os.link(os.path.join(REPORTS_DIR, most_recent_pdf_fn.replace(".pdf", ".png")), thumbnail_fn)
+    if most_recent_pdf_fn:
+        thumbnail_source_fn = os.path.join(REPORTS_DIR, most_recent_pdf_fn.replace(".pdf", ".png"))
+        thumbnail_fn = os.path.join(BUILD_DIR, get_report_url_path(report, '.png'))
+        if os.path.exists(thumbnail_source_fn) and not os.path.exists(thumbnail_fn):
+            os.link(thumbnail_source_fn, thumbnail_fn)
 
     # Save current metadata hash so we know this file has been processed.
     # Also save the topics, since they're dynamically computed and we
