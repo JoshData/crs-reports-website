@@ -191,8 +191,12 @@ def copy_static_assets():
     os.system("unzip -d %s -u branding/favicons.zip" % BUILD_DIR)
 
 def get_report_url_path(report, ext):
-    return "reports/%s%s" % (report["number"], ext)
+    # Sanity check that report numbers won't cause invalid file paths.
+    if not re.match(r"^[0-9A-Z-]+$", report["number"]):
+        raise Exception("Report has a number that would cause problems for our URL structure.")
 
+    # Construct a URL path.
+    return "reports/%s%s" % (report["number"], ext)
 
 def dict_sha1(report):
     hasher = hashlib.sha1()
@@ -200,10 +204,6 @@ def dict_sha1(report):
     return hasher.hexdigest()
 
 def generate_report_page(report):
-    # Sanity check that report numbers won't cause invalid file paths.
-    if not re.match(r"^[0-9A-Z-]+$", report["number"]):
-        raise Exception("Report has a number that would cause problems for our URL structure.")
-
     # No need to process this report if it hasn't changed. But we need the
     # cached topics. Never skip if given in the ONLY environment variable.
     current_hash = dict_sha1(report)
