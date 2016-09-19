@@ -343,6 +343,7 @@ if __name__ == "__main__":
     reports = load_all_reports()
 
     # Generate report listing file and an excerpt of the file for the documentation page.
+    os.makedirs(BUILD_DIR, exist_ok=True)
     with open("build/reports.csv", "w") as f:
         w = csv.writer(f)
         w.writerow(["url", "sha1", "number", "latestPubDate"])
