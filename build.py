@@ -338,6 +338,17 @@ if __name__ == "__main__":
     # Load all of the report metadata.
     reports = load_all_reports()
 
+    # Generate report listing file and an excerpt of the file for the documentation page.
+    with open("build/reports.csv", "w") as f:
+        w = csv.writer(f)
+        w.writerow(["url", "sha1", "number", "latestPubDate"])
+        for report in reports:
+            w.writerow([ get_report_url_path(report, ".json"), report["_hash"], report["number"], report["versions"][0]["date"].date().isoformat() ])
+    reports_csv_excerpt = ""
+    for line in open("build/reports.csv"):
+        reports_csv_excerpt += line
+        if len(reports_csv_excerpt) > 512: break
+
     # Generate report pages.
     for report in tqdm.tqdm(reports, desc="report pages"):
         generate_report_page(report)
@@ -354,14 +365,8 @@ if __name__ == "__main__":
         "reports_count": len(reports),
         "topics": by_topic,
         "recent_reports": reports[0:6],
+        "reports_csv_excerpt": reports_csv_excerpt,
     })
-
-    # Generate report listing file.
-    with open("build/reports.csv", "w") as f:
-        w = csv.writer(f)
-        w.writerow(["number", "latestPubDate", "url", "sha1"])
-        for report in reports:
-            w.writerow([ report["number"], report["versions"][0]["date"].date().isoformat(), get_report_url_path(report, ".json"), report["_hash"] ])
 
     # Copy static assets (CSS etc.).
     copy_static_assets()

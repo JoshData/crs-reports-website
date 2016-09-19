@@ -10,9 +10,10 @@ The website build process is written in Python 3. Prepare your development envir
 
 	pip3 install -r requirements.txt
 
-Although the full website build requires access to a private source archive of CRS reports, which you probably don't have access to, you can run the core website build process on the public reports.
+Although the full website build requires access to a private source archive of CRS reports, which you probably don't have access to, you can run the core website build process on the public reports. Download some of the reports using the bulk download example script:
 
-	TODO
+	python3 bulk-download.py
+	(CTRL+C at any time once you have as much as you want)
 
 Run the build process:
 

@@ -1,0 +1,142 @@
+{% extends "master.html" %}
+
+{% block title %}
+Bulk Download / Developer Docmentation - EveryCRSReport.com
+{% endblock %}
+
+{% block head %}
+<style>
+pre {
+	margin: 2em 1em;
+}
+</style>
+{% endblock %}
+
+{% block body %}
+<h1>Bulk Download and Developer Documentation</h1>
+
+<p>We are making all of the reports and associated data data available for download for analysis and reuse.</p>
+
+<h2>Bulk Download</h2>
+
+<p>To retreive the reports and metdata, just access the report URLs:</p>
+
+<p>
+<code>https://www.everycrsreport.com/reports/R44636.json</code> (metadata)<br>
+<code>https://www.everycrsreport.com/reports/R44636.png</code> (thumbnail)<br>
+<code>https://www.everycrsreport.com/files/20160916_R44636_32dd060eee1e0c1fb8288558159ce1639eddffe1.pdf</code><br>
+<code>https://www.everycrsreport.com/files/20160916_R44636_f3e0d928bd4f023f7cb676cc26751f0a8eb4833d.html</code><br>
+...
+</p>
+
+<p>A complete listing of metadata JSON files is published at <a href="https://www.everycrsreport.com/reports.csv">https://www.everycrsreport.com/reports.csv</a>. It looks like:</p>
+
+<pre>{{reports_csv_excerpt}}...</pre>
+
+<p>Our Python script <a href="https://github.com/JoshData/crs-reports-website/blob/master/bulk-download.py">bulk-download.py</a> demonstrates how to use this listing to download the complete archive.</p>
+
+<h2>Metadata Schema</h2>
+
+<p>Each report has a metadata JSON file that describes the report.</p>
+
+<p>Here&rsquo;s an example:</p>
+
+<pre>
+{
+  "number": "R41330",
+  "versions": [
+    {
+      "date": "2016-09-15T00:00:00",
+      "title": "National Monuments and the Antiquities Act",
+      "summary": "The Antiquities Act of 1906 authorizes ... from potential threats.",
+      "formats": [
+        {
+          "format": "HTML",
+          "sha1": "67193b9ccc8e2a41640eb140040bc6a08a8275ab",
+          "filename": "files/20160915_R41330_67193b9ccc8e2a41640eb140040bc6a08a8275ab.html"
+        },
+        {
+          "format": "PDF",
+          "sha1": "7d9b5190fc6ef4f898d2e7b667dd7c0531831a19",
+          "filename": "files/20160915_R41330_7d9b5190fc6ef4f898d2e7b667dd7c0531831a19.pdf"
+        }
+      ],
+      "authors": [
+        "Carol Hardy Vincent"
+      ],
+      "topics": [
+        {
+          "source": "IBCList",
+          "name": "Federal Lands",
+          "id": 314
+        }
+      ]
+    },
+    ...
+  ]
+}</pre>
+
+<h3>Report Object</h3>
+
+<p>The top-level object represents a CRS report and contains two fields:</p>
+
+<pre>{
+  "number": "R41330",
+  "versions": [
+   ...
+  ]
+}</pre>
+
+<p>The <code>number</code> field is an identifier for the report assigned by CRS.</p>
+
+<p>CRS may update a report. Each update is listed in <code>versions</code> as a Report Version Objects (see below). Because the metadata may change in each update, all of the metadata for a report besides its number is stored in the metadata of the versions. The versions are in reverse-chronological order, so the first entry has the most recent metadata.</p>
+
+<h3>Report Version Objects</h3>
+
+<p>Each report version has several fields:</p>
+
+<pre>{
+  "date": "2016-09-15T00:00:00",
+  "title": "National Monuments and the Antiquities Act",
+  "summary": "The Antiquities Act of 1906 authorizes ... from potential threats.",
+  "formats": [
+    ...
+  ],
+  "authors": [
+    "Carol Hardy Vincent"
+  ],
+  "topics": [
+    {
+      "source": "IBCList",
+      "name": "Federal Lands",
+      "id": 314
+    }
+  ]
+}</pre>
+
+<p><code>date</code> is the publication date of the report (or updated report).</p>
+
+<p><code>topics</code> comes from CRS metadata. (We do not use this to generate the Topic Areas on this website, however.)</p>
+
+<p><code>formats</code> is a list of zero or more Report Version Format objects (see below).</p>
+
+<h3>Report Version Format Objects</h3>
+
+<p>Each report version is published in zero or more document formats. Each format looks like:</p>
+
+<pre>{
+  "format": "HTML",
+  "sha1": "67193b9ccc8e2a41640eb140040bc6a08a8275ab",
+  "filename": "files/20160915_R41330_67193b9ccc8e2a41640eb140040bc6a08a8275ab.html"
+}</pre>
+
+<p>The <code>format</code> is either <code>HTML</code> or <code>PDF</code>.</p>
+
+<p><code>filename</code> specifies a URL at <code>https://www.everycrsreport.com/</code> where the file can be retrieved.</p>
+
+<h2>Usage Terms</h2>
+
+<p>CRS reports, as works of the United States Government, are not subject to copyright protection in the United States. Any CRS report, including its metadata, may be reproduced and distributed in its entirety without permission from CRS or from us. However, bear in mind that as a CRS report may include copyrighted images or material from a third party, you may need to obtain the permission of the copyright holder if you wish to copy or otherwise use copyrighted material.</p>
+
+
+{% endblock %}
