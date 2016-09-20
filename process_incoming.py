@@ -248,20 +248,37 @@ def clean_html(content):
 
 
 def clean_pdf(in_file, out_file):
-    # Clean the PDF by removing author contact information.
     try:
-        from contact_remover import remove_contacts_in_pdf
-        remove_contacts_in_pdf(in_file, out_file)
+        import tempfile, shutil
+        with tempfile.NamedTemporaryFile() as f1:
+            with tempfile.NamedTemporaryFile() as f2:
+                # Clean the PDF by removing author contact information.
+                from contact_remover import remove_contacts_in_pdf
+                remove_contacts_in_pdf(in_file, f1.name)
+
+                # Add our own page to the end of the PDF. The qpdf command
+                # for this is pretty weird. All we're doing is appending a
+                # page.
+                import subprocess
+                subprocess.check_call(['qpdf', '--linearize', f1.name,
+                    "--pages", f1.name, "branding/pdf-addendum-page.pdf", "--",
+                    f2.name])
+
+                # Copy the final PDF to the output location.
+                shutil.copyfile(f2.name, out_file)
+
+        # Generate a thumbnail image of the PDF.
+        os.system("pdftoppm -png -singlefile -scale-to-x 600 -scale-to-y -1 %s %s" % (
+             out_file,
+             out_file.replace(".pdf", "") # pdftoppm adds ".png" to the end of the file name
+         ))
+
     except Exception as e:
+        # Catch all exceptions because we are in a subprocess and untrapped
+        # exceptions get lost.
         print(in_file)
         print("\t", e)
         return
-
-    # Generate a thumbnail image of the PDF.
-    os.system("pdftoppm -png -singlefile -scale-to-x 600 -scale-to-y -1 %s %s" % (
-         out_file,
-         out_file.replace(".pdf", "") # pdftoppm adds ".png" to the end of the file name
-     ))
 
 def process_file(func, content_fn, out_fn):
     #print(out_fn, "...")
