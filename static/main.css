@@ -167,7 +167,7 @@ footer {
     color: #666;
   }
 
-/* SUMMARY PAGES */
+/* COMMON FORMATTING FOR METADATA, SUMMARY */
 
 .crs-report {
     margin-bottom: 1.5em;
@@ -176,6 +176,10 @@ footer {
 .crs-report .report-title {
     font-size: 110%;
     font-weight: bold;
+}
+
+.report-metadata code {
+    margin-left: 1em;
 }
 
 .crs-report p {

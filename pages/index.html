@@ -67,9 +67,9 @@ Every CRS Report
          <div> <!-- wrapper used by js -->
           <p class="report-title"><a href="/reports/{{report.number}}.html">{{report.versions[0].title}}</a></p>
           <p class="report-metadata">
-            <code>{{report.number}}</code>
             {% if report.versions[-1].date != report.versions[0].date %}{{report.versions[-1].date|date}} &ndash; {% endif %}
             {{report.versions[0].date|date}}
+            <code>{{report.number}}</code>
           </p>
           <div class="report-summary">{{report.versions[0].summary|truncate(140)}}</div>
          </div>
