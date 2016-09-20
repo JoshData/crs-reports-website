@@ -13,7 +13,7 @@ a {
         text-decoration: none;
     }
 
-h1, h2 {
+h1, h2, h3, h4 {
     font-family: 'Lato', sans-serif;
 }
 
@@ -23,6 +23,16 @@ h1 {
 
 h2 {
     font-size: 22px;
+    margin: 1.5em 0 .75em 0;
+}
+
+h3 {
+    font-size: 18px;
+    margin: 1.5em 0 .75em 0;
+}
+
+h4 {
+    font-size: 16px;
     margin: 1.5em 0 .75em 0;
 }
 
@@ -177,6 +187,15 @@ footer {
 #report-page h1 {
     margin-bottom: 15px;
 }
+
+#report-page .report-summary {
+    font-size: 15.5px;
+    line-height: 140%;
+}
+    #report-page .report-summary p {
+        margin-bottom: 1em;
+    }
+
 #report-page .report-metadata {
     margin-bottom: 30px;
 }
@@ -190,7 +209,6 @@ footer {
     }
 
 #sidebar-metadata {
-    font-size: 90%;
     margin-left: 1em;
 }
     #sidebar-metadata p:last-child {

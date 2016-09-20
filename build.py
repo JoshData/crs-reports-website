@@ -118,7 +118,7 @@ def generate_static_page(fn, context, output_fn=None):
     # Add some filters.
 
     def format_datetime(value):
-        return value.strftime("%B %-d, %Y")
+        return value.strftime("%b %-d, %Y")
     env.filters['date'] = format_datetime
 
     def format_summary(text):
