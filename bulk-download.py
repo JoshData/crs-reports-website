@@ -20,7 +20,7 @@ import csv
 import os, os.path
 import json
 
-api_base_url = "http://54.183.143.173:8000/"
+api_base_url = "https://www.everycrsreport.com/"
 
 def download_file(url, fn, expected_digest):
     # Do we have it already?
