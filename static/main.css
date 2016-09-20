@@ -214,6 +214,7 @@ footer {
 
 #sidebar-metadata {
     margin-left: 1em;
+    font-size: 13px;
 }
     #sidebar-metadata p:last-child {
         margin: 0;

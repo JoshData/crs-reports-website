@@ -47,7 +47,7 @@
            <div id="report-versions">
            {% for version in report.versions %}
            <div class="row">
-               <div class="col-md-6 col-lg-4 report-version-date">{{version.date|date}}</div>
+               <div class="col-md-6 col-lg-4 report-version-date">{{version.date|date_short}}</div>
                <div class="col-md-6 col-lg-4 report-formats">
                    {% for format in version.formats %}
                        <a href="/{{format.filename}}">{{format.format}}</a>

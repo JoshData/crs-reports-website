@@ -117,9 +117,8 @@ def generate_static_page(fn, context, output_fn=None):
 
     # Add some filters.
 
-    def format_datetime(value):
-        return value.strftime("%b %-d, %Y")
-    env.filters['date'] = format_datetime
+    env.filters['date'] = lambda value : value.strftime("%B %-d, %Y")
+    env.filters['date_short'] = lambda value : value.strftime("%b. %-d, %Y")
 
     def format_summary(text):
         # Some summaries have double-newlines that are probably paragraph breaks.
