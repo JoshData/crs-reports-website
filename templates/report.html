@@ -109,6 +109,13 @@
 $(function() {
     // give the tables nice Bootstrap styling
     $('#report-content table').addClass('table');
+
+    // except a table that follows <h2>Footnotes</h2>
+    $('#report-content h2').each(function() {
+      if ($(this).text() == "Footnotes") {
+        $(this).next('table').removeClass('table');
+      }
+    })
 });
 </script>
 {% endblock %}
