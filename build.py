@@ -76,8 +76,9 @@ def load_all_reports():
             version["date"] = parse_dt(version["date"])
             #version["fetched"] = parse_dt(version["fetched"], hasmicro=True, utc=True)
 
-            # Sort the version files - put PDF first.
-            version["formats"].sort(key = lambda fmt : fmt["format"] == "PDF", reverse=True)
+            # Turn the formats array into a dictionary mapping the format
+            # type (PDF, HTML) to the format dict.
+            version["formats"] = { f["format"]: f for f in version["formats"] }
 
         reports.append(report)
 
@@ -233,15 +234,15 @@ def generate_report_page(report):
     most_recent_text = None
     most_recent_pdf_fn = None
     for version in reversed(report["versions"]):
-        for format in version['formats']:
-            if format['format'] == "PDF":
-                most_recent_pdf_fn = format['filename']
-
-            if format['format'] != 'HTML': continue
+        if 'PDF' in version['formats']:
+            most_recent_pdf_fn = version['formats']['PDF']['filename']
+        
+        if 'HTML' in version['formats']:
             try:
-                with open(os.path.join("reports/files", format['filename'][6:])) as f:
+                with open(os.path.join(REPORTS_DIR, version['formats']['HTML']['filename'])) as f:
                     html = f.read()
             except FileNotFoundError:
+                print("Missing HTML", report["number"], version["date"])
                 html = None
 
             if html and most_recent_text and not os.environ.get("FAST"):
@@ -254,8 +255,6 @@ def generate_report_page(report):
 
             # Keep for next iteration & for displaying most recent text.
             most_recent_text = html
-
-            break # don't process other formats
 
     # Assign topic areas.
     topics = []
@@ -333,6 +332,28 @@ def create_feed(reports, title, fn):
         fe.pubdate(version["date"])
     feed.rss_file(os.path.join(BUILD_DIR, fn))
 
+def generate_csv_listing():
+    # Generate a CSV listing of all of the reports.
+    with open(os.path.join(BUILD_DIR, "reports.csv"), "w") as f:
+        w = csv.writer(f)
+        w.writerow(["number", "url", "sha1", "latestPubDate", "latestPDF", "latestHTML"])
+        for report in reports:
+            w.writerow([
+                report["number"],
+                get_report_url_path(report, ".json"),
+                report["_hash"],
+                report["versions"][0]["date"].date().isoformat(),
+                report["versions"][0]["formats"].get("PDF", {}).get("filename", ""),
+                report["versions"][0]["formats"].get("HTML", {}).get("filename", ""),
+            ])
+
+    # Read back the top lines -- we'll show the excerpt on the
+    # developer docs page.
+    reports_csv_excerpt = ""
+    for line in open("build/reports.csv"):
+        reports_csv_excerpt += line
+        if len(reports_csv_excerpt) > 512: break
+    return reports_csv_excerpt
 
 # MAIN
 
@@ -341,17 +362,11 @@ if __name__ == "__main__":
     # Load all of the report metadata.
     reports = load_all_reports()
 
-    # Generate report listing file and an excerpt of the file for the documentation page.
+    # Ensure the build output directory exists.
     os.makedirs(BUILD_DIR, exist_ok=True)
-    with open("build/reports.csv", "w") as f:
-        w = csv.writer(f)
-        w.writerow(["url", "sha1", "number", "latestPubDate"])
-        for report in reports:
-            w.writerow([ get_report_url_path(report, ".json"), report["_hash"], report["number"], report["versions"][0]["date"].date().isoformat() ])
-    reports_csv_excerpt = ""
-    for line in open("build/reports.csv"):
-        reports_csv_excerpt += line
-        if len(reports_csv_excerpt) > 512: break
+
+    # Generate report listing file and an excerpt of the file for the documentation page.
+    reports_csv_excerpt = generate_csv_listing()
 
     # Generate report pages.
     for report in tqdm.tqdm(reports, desc="report pages"):

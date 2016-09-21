@@ -19,21 +19,34 @@ pre {
 
 <h2>Bulk Download</h2>
 
-<p>To retreive the reports and metdata, just access the report URLs:</p>
-
-<p>
-<code>https://www.everycrsreport.com/reports/R44636.json</code> (metadata)<br>
-<code>https://www.everycrsreport.com/reports/R44636.png</code> (thumbnail)<br>
-<code>https://www.everycrsreport.com/files/20160916_R44636_32dd060eee1e0c1fb8288558159ce1639eddffe1.pdf</code><br>
-<code>https://www.everycrsreport.com/files/20160916_R44636_f3e0d928bd4f023f7cb676cc26751f0a8eb4833d.html</code><br>
-...
-</p>
-
-<p>A complete listing of metadata JSON files is published at <a href="https://www.everycrsreport.com/reports.csv">https://www.everycrsreport.com/reports.csv</a>. It looks like:</p>
+<p>A complete listing of reports is published in a CSV file <a href="https://www.everycrsreport.com/reports.csv">https://www.everycrsreport.com/reports.csv</a>. It looks like:</p>
 
 <pre>{{reports_csv_excerpt}}...</pre>
 
-<p>Our Python script <a href="https://github.com/JoshData/crs-reports-website/blob/master/bulk-download.py">bulk-download.py</a> demonstrates how to use this listing to download the complete archive.</p>
+<p>The columns are:</p>
+
+<ol>
+  <li>the report number (assigned by CRS)</li>
+  <li>a path to a metadata JSON file for the report (see below for schema documentation)</li>
+  <li>the SHA1 digest of the metadata JSON file (so you can know if it has changed)</li>
+  <li>the most recent publication date of the report (changed when CRS publishes an update)</li>
+  <li>a path to the most recent PDF for the report</li>
+  <li>a path to the most recent HTML fragment for the report</li>
+</ol>
+
+<p>The paths in the CSV file are relative to <code>https://www.everycrsreport.com/</code>.</p>
+
+<p>Only the most recent PDF and HTML files for a report are listed in the CSV file. For previous versions of the report, parse the metadata JSON files to get the PDF and HTML filenames. Our Python script <a href="https://github.com/JoshData/crs-reports-website/blob/master/bulk-download.py">bulk-download.py</a> demonstrates how to use this listing to download the complete archive.</p>
+
+<p>The report URLs follow a predictable format:</p>
+
+<p>
+report page: <code>https://www.everycrsreport.com/reports/R44636.html</code><br>
+report metadata JSON: <code>https://www.everycrsreport.com/reports/R44636.json</code><br>
+report thumbnail: <code>https://www.everycrsreport.com/reports/R44636.png</code>
+</p>
+
+<p>Report PDFs and HTML fragment files are under <code>https://www.everycrsreport.com/files</code>. Because reports can have multiple versions, the file paths for the PDFs and HTML are not predictable, but they are listed in the CSV listing and in the metadata JSON files.</p>
 
 <h2>Metadata Schema</h2>
 

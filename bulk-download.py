@@ -25,7 +25,8 @@ api_base_url = "https://www.everycrsreport.com/"
 def download_file(url, fn, expected_digest):
     # Do we have it already?
     if os.path.exists(fn):
-        # Compute the SHA1 hash of the existing file's contents.
+        # Compute the SHA1 hash of the existing file's contents,
+        # if we are given a hash.
         with open(fn, 'rb') as f:
             hasher = hashlib.sha1()
             hasher.update(f.read())
@@ -63,6 +64,11 @@ for report in reader:
     download_file(api_base_url + report["url"], metadata_fn, report["sha1"])
 
     # Also download the PDF/HTML files for the report.
+    #
+    # While we could get the most recent PDF and HTML file names from the
+    # CSV file directly (report["latestPDF"], report["latestHTML"]), this
+    # script demonstrates how to get all past versions of a report also.
+    #
     # Parse the metadata JSON file to figure out what the PDF/HTML file names are.
     with open(metadata_fn) as f:
         metadata = json.load(f)
