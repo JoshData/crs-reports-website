@@ -174,7 +174,18 @@ def clean_html(content):
 
     def scrub_text(text):
         # Scrub crs.gov email addresses from the text.
+        # There's a separate filter later for addresses in mailto: links.
         text = re.sub(r"[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+@crs\.gov", "[email address scrubbed]", text)
+
+        # Scrub CRS telephone numbers --- in 7-xxxx format. We have to exclude
+        # cases that have a precediing digit, because otherwise we match
+        # strings like "2007-2009". But the number can also occur at the start
+        # of a node, so it may be the start of a string.
+        text = re.sub(r"(^|[^\d])7-\d\d\d\d", r"\1[phone number scrubbed]", text)
+
+        # Scrub all telephone numbers --- in (xxx) xxx-xxxx format.
+        text = re.sub(r"\(\d\d\d\) \d\d\d-\d\d\d\d", "[phone number scrubbed]", text)
+
         return text
 
     # Pr-process some tags.
@@ -194,7 +205,7 @@ def clean_html(content):
         if 'href' in tag.attrib and tag.attrib['href'].lower().startswith("mailto:"):
             tag.tag = "span"
             del tag.attrib['href']
-            tag.text = "[scrubbed]"
+            tag.text = "[email address scrubbed]"
 
         # Demote h#s. These seem to occur around the table of contents only.
         if tag.tag in ("h1", "h2", "h3", "h4", "h5"):
