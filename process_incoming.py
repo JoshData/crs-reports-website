@@ -47,7 +47,11 @@ def load_reports_metadata():
     # Look through all of the metadata records on disk and combine by report.
     for fn in glob.glob(os.path.join(INCOMING_DIR, "documents/*.json")):
         with open(fn) as f:
-            doc = json.load(f)
+            try:
+                doc = json.load(f)
+            except ValueError as e:
+                print(fn, e)
+                continue
 
         # Validate and normalize the fetch date and CoverDate into an ISO date string.
         # We need these for chronological sorting but turning them into datetime instances
@@ -306,7 +310,7 @@ def process_file(func, content_fn, out_fn):
     try:
         content = func(content)
     except Exception as e:
-        print(fn)
+        print(out_fn)
         print("\t", e)
         return
 
