@@ -385,6 +385,7 @@ if __name__ == "__main__":
         "topics": by_topic,
         "recent_reports": reports[0:6],
         "reports_csv_excerpt": reports_csv_excerpt,
+        "all_reports": reports,
     })
 
     # Copy static assets (CSS etc.).

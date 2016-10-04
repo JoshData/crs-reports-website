@@ -1,0 +1,18 @@
+{% extends "master.html" %}
+
+{% block title %}Listing of All Reports{% endblock %}
+
+{% block body %}
+
+<h1>All Reports</h1>
+
+<p style="margin: 2em 0">
+We&rsquo;re tracking {{all_reports|length|intcomma}} Congressional Research Service reports.
+<a href="/rss.xml" title="RSS feed for new and updated reports"><img src="/static/rss.png" style="height: 1em; vertical-align: top;" alt="RSS icon"></a>
+</p>
+
+{% for report in all_reports %}
+     {% include "report-in-list.html" %}
+{% endfor %}
+
+{% endblock %}
