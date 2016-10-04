@@ -141,6 +141,11 @@ def generate_static_page(fn, context, output_fn=None):
         return format(value, ",d")
     env.filters['intcomma'] = intcomma
 
+    def as_json(value):
+        import jinja2
+        return jinja2.Markup(json.dumps(value))
+    env.filters['json'] = as_json
+
     # Load the template.
 
     try:

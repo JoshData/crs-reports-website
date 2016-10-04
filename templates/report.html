@@ -3,11 +3,31 @@
 {% block title %}{{report.versions[0].title}}{% endblock %}
 
 {% block head %}
+<!-- opengraph & twitter cards -->
 <meta property="og:title" content="{{report.versions[0].title}}" />
 <meta property="og:description" content="{{report.versions[0].summary|truncate(140)}}" />
 <meta property="og:image" content="{{thumbnail_url}}" />
 <meta name="twitter:card" content="summary" />
 
+<!-- google schema.org -->
+<script type="application/ld+json">
+{
+  "@context": "http://schema.org",
+  "@type": "Report",
+  "headline": {{report.versions[0].title|json}},
+  "datePublished": {{report.versions[-1].date.isoformat()|json}},
+  "dateModified": {{report.versions[0].date.isoformat()|json}},
+  "thumbnailUrl": {{thumbnail_url|json}},
+  "publisher": {
+   "@type": "Organization",
+   "name": "Congressional Research Service"
+  },
+  "description": {{report.versions[0].summary|truncate(140)|json}},
+  "reportNumber": {{report.number|json}}
+}
+</script>
+
+<!-- for our internal generation process -->
 <meta name="topics" content="{{topics}}" />
 <meta name="source-content-hash" content="{{source_content_hash}}" />
 {% endblock %}
