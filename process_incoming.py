@@ -158,8 +158,13 @@ def clean_files():
 
 
 def clean_html(content):
+    import lxml.etree
+
+    # The HTML file contains the entire HTML page from CRS.gov that the report was
+    # scraped from. Extract just the report content, dropping the CRS.gov header/footer.
+
     # Some reports are invalid HTML with a whole doctype and html node inside
-    # the main report container element.
+    # the main report container element. See if this is one of those documents.
     extract_blockquote = ('<div class="Report"><!DOCTYPE' in content)
 
     # Extract the report itself from the whole page.
@@ -174,6 +179,15 @@ def clean_html(content):
         if content is None:
             raise ValueError("HTML page didn't have the expected blockquote.")
         content.tag = "div"
+
+    # Remove the XHTML namespace to make processing easier.
+    for tag in [content] + content.findall(".//*"):
+        if isinstance(tag.tag, str): # is an element
+            tag.tag = tag.tag.replace("{http://www.w3.org/1999/xhtml}", "")
+
+    # Scrub content and adjust some tags.
+
+    allowed_classes = { 'ReportHeader' }
 
     def scrub_text(text):
         # Scrub crs.gov email addresses from the text.
@@ -191,20 +205,38 @@ def clean_html(content):
 
         return text
 
-    # Pr-process some tags.
-    allowed_classes = { "titleline", "authorline", "dateline", "Authors", "Author", "CoverDate" }
     for tag in [content] + content.findall(".//*"):
         # Skip non-element nodes.
         if not isinstance(tag.tag, str): continue
-
-        # Remove the XHTML namespace to make processing easier.
-        tag.tag = tag.tag.replace("{http://www.w3.org/1999/xhtml}", "")
 
         # Scrub the text.
         if tag.text is not None: tag.text = scrub_text(tag.text)
         if tag.tail is not None: tag.tail = scrub_text(tag.tail)
 
-        # Kill mailto: links, which have author emails, which we want to scrub.
+        css_classes = set(tag.attrib.get('class', '').split(" "))
+
+        # Modern reports have a ReportHeader node with title, authors, date, report number,
+        # and an internal link to just past the table of contents. Since we are scrubbing
+        # author names, we must remove at least that. We also want to remove that internal
+        # link.
+        if "ReportHeader" in css_classes:
+            for node in tag:
+                node_css_classes = set(node.attrib.get('class', '').split(" "))
+                if "Title" in node_css_classes:
+                    pass # keep this one
+                elif "CoverDate" in node_css_classes:
+                    pass # keep this one
+                else:
+                    node.getparent().remove(node)
+
+        # Older reports had an "authorline" with author names, which we scrub by
+        # removing completely.
+        if "authorline" in css_classes:
+            tag.getparent().remove(tag)
+
+        # Scrub mailto: links, which have author emails, which we want to scrub.
+        # I'm not sure if these ever appear outside of author info at the top
+        # which we've already scrubbed, but to be sure we still do this.
         if 'href' in tag.attrib and tag.attrib['href'].lower().startswith("mailto:"):
             tag.tag = "span"
             del tag.attrib['href']
@@ -215,13 +247,13 @@ def clean_html(content):
             tag.tag = "h" + str(int(tag.tag[1:])+1)
 
         # Turn some classes into h#s.
-        for cls in tag.attrib.get("class", "").split(" "):
+        for cls in css_classes:
             if cls in ("Heading1", "Heading2", "Heading3", "Heading4", "Heading5"):
                 tag.tag = "h" + str(int(cls[7:])+1)
             if cls == "SummaryHeading":
                 tag.tag = "h2"
 
-        # Sanitize classes using the whitelist above.
+        # Sanitize CSS classes using the whitelist above.
         if "class" in tag.attrib:
             new_classes = " ".join(sorted(set(tag.attrib["class"].split(" ")) & allowed_classes))
             if new_classes:
@@ -229,7 +261,7 @@ def clean_html(content):
             else:
                 del tag.attrib["class"]
 
-    import lxml.etree
+    # Serialize back to XHTML.
     content = lxml.etree.tostring(content, encoding=str, method="html")
 
     # Guard against unsafe content.
