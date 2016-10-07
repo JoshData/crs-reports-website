@@ -3,3 +3,4 @@
 /aws_credentials.txt
 /build
 /cache
+__pycache__
