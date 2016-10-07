@@ -216,7 +216,7 @@ def generate_report_page(report):
 
     # Regenerating a report page is a bit expensive so we'll skip it if a
     # generated file already exists and is up to date.
-    current_hash = dict_sha1(report, ["build.py", "templates/master.html", "templates/report.html"])
+    current_hash = dict_sha1(report, [__file__, "templates/master.html", "templates/report.html"])
     if os.path.exists(os.path.join(BUILD_DIR, output_fn)):
         with open(os.path.join(BUILD_DIR, output_fn)) as f:
             existing_page = f.read()
