@@ -26,6 +26,14 @@ def write_report_json_files():
         process_file(transform_report_metadata, report,
             os.path.join(REPORTS_DIR, "reports", report[0]["ProductNumber"] + ".json"))
 
+    # Collect a list of author names.
+    author_names = set()
+    for report in reports:
+        for version in report:
+            for author in version["Authors"]:
+                author_names.add(author["FirstName"]) # has full name
+
+    return author_names
 
 def load_reports_metadata():
     # Load all of the CRS reports metadata into memory. We do this because each report
@@ -126,7 +134,7 @@ def transform_report_metadata(meta):
     ]), indent=2)
 
 
-def clean_files():
+def clean_files(author_names):
     # Use a multiprocessing pool to divide the load across processors.
     from multiprocessing import Pool
     pool = Pool()
@@ -141,7 +149,7 @@ def clean_files():
         out_fn = os.path.join(REPORTS_DIR, "files", os.path.basename(fn))
         if not os.path.exists(out_fn):
             if fn.endswith(".html"):
-                ar = pool.apply_async(process_file, [clean_html, fn, out_fn])
+                ar = pool.apply_async(process_file, [clean_html, fn, out_fn, author_names])
             elif fn.endswith(".pdf"):
                 ar = pool.apply_async(clean_pdf, [fn, out_fn])
             else:
@@ -157,7 +165,7 @@ def clean_files():
     pool.join()
 
 
-def clean_html(content):
+def clean_html(content, author_names):
     import lxml.etree
 
     # The HTML file contains the entire HTML page from CRS.gov that the report was
@@ -202,6 +210,9 @@ def clean_html(content):
 
         # Scrub all telephone numbers --- in (xxx) xxx-xxxx format.
         text = re.sub(r"\(\d\d\d\) \d\d\d-\d\d\d\d", "[phone number scrubbed]", text)
+
+        # Scrub all author names.
+        text = re.sub("|".join([re.escape(an) for an in author_names]), "[author name scrubbed]", text)
 
         return text
 
@@ -336,7 +347,7 @@ def clean_pdf(in_file, out_file):
         print("\t", e)
         return
 
-def process_file(func, content_fn, out_fn):
+def process_file(func, content_fn, out_fn, *args):
     #print(out_fn, "...")
 
     if isinstance(content_fn, str):
@@ -349,7 +360,7 @@ def process_file(func, content_fn, out_fn):
 
     # run the function
     try:
-        content = func(content)
+        content = func(content, *args)
     except Exception as e:
         print(out_fn)
         print("\t", e)
@@ -367,8 +378,8 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(REPORTS_DIR, 'reports'), exist_ok=True)
     os.makedirs(os.path.join(REPORTS_DIR, 'files'), exist_ok=True)
 
-    # Clean/sanitize the HTML and PDF files.
-    clean_files()
-
     # Combine and transform the report JSON.
-    write_report_json_files()
+    author_names = write_report_json_files()
+
+    # Clean/sanitize the HTML and PDF files.
+    clean_files(author_names)
