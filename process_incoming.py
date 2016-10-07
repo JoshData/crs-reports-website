@@ -218,20 +218,29 @@ def clean_html(content):
         # Modern reports have a ReportHeader node with title, authors, date, report number,
         # and an internal link to just past the table of contents. Since we are scrubbing
         # author names, we must remove at least that. We also want to remove that internal
-        # link.
+        # link and replace the title with an <h1> tag.
         if "ReportHeader" in css_classes:
             for node in tag:
                 node_css_classes = set(node.attrib.get('class', '').split(" "))
                 if "Title" in node_css_classes:
-                    pass # keep this one
+                    node.tag = "h1"
                 elif "CoverDate" in node_css_classes:
                     pass # keep this one
                 else:
                     node.getparent().remove(node)
 
+        # Older reports had a "titleline" class for the title.
+        if "titleline" in css_classes:
+            tag.tag = "h1"
+            css_classes.add("Title") # so the h1 doesn't get demoted below
+
         # Older reports had an "authorline" with author names, which we scrub by
         # removing completely.
         if "authorline" in css_classes:
+            tag.getparent().remove(tag)
+
+        # Older reports had a "Print Version" link, which we can remove.
+        if tag.tag == "a" and tag.text == "Print Version":
             tag.getparent().remove(tag)
 
         # Scrub mailto: links, which have author emails, which we want to scrub.
@@ -242,8 +251,9 @@ def clean_html(content):
             del tag.attrib['href']
             tag.text = "[email address scrubbed]"
 
-        # Demote h#s. These seem to occur around the table of contents only.
-        if tag.tag in ("h1", "h2", "h3", "h4", "h5"):
+        # Demote h#s. These seem to occur around the table of contents only. Don't
+        # demote the one we just made above for the title.
+        if tag.tag in ("h1", "h2", "h3", "h4", "h5") and "Title" not in css_classes:
             tag.tag = "h" + str(int(tag.tag[1:])+1)
 
         # Turn some classes into h#s.
@@ -280,7 +290,7 @@ def clean_html(content):
         return False
     content = bleach.clean(
         content,
-        tags=["a", "img", "b", "strong", "i", "em", "u", "sup", "sub", "span", "div", "p", "br", "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td", "hr", "h2", "h3", "h4", "h5", "h6"],
+        tags=["a", "img", "b", "strong", "i", "em", "u", "sup", "sub", "span", "div", "p", "br", "ul", "ol", "li", "table", "thead", "tbody", "tr", "th", "td", "hr", "h1", "h2", "h3", "h4", "h5", "h6"],
         attributes={
             "*": ["title", "class"],
             "a": link_filter,
