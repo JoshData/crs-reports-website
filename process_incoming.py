@@ -7,6 +7,7 @@ import os
 import os.path
 import json
 import re
+import random
 
 import tqdm
 import bleach
@@ -158,8 +159,10 @@ def clean_files(file_metadata, author_names):
     # own SHA1 hash in their file name, we know once we processed it that it's
     # done. If we change the logic in this module then you should delete the
     # whole reports/files directory and re-run this.
+    files_to_process = glob.glob(os.path.join(INCOMING_DIR, "files/*"))
+    random.shuffle(files_to_process)
     open_tasks = []
-    for fn in tqdm.tqdm(sorted(glob.glob(os.path.join(INCOMING_DIR, "files/*"))), desc="cleaning HTML/PDFs"):
+    for fn in tqdm.tqdm(files_to_process, desc="cleaning HTML/PDFs"):
         out_fn = os.path.join(REPORTS_DIR, "files", os.path.basename(fn))
         if not os.path.exists(out_fn):
             if fn.endswith(".html"):
@@ -382,6 +385,9 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
         (re.compile("[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+(@crs.?(loc|gov))"), lambda m : ("[redacted]" + m.group(1))),
         (re.compile(author_name_regex), lambda m : "(name redacted)"),
     ]
+
+    # Avoid inserting ?'s and spaces.
+    redactor_options.content_replacement_glyphs = ['#', '*', '/', '-']
 
     # Run qpdf to decompress.
 
