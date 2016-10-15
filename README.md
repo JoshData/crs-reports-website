@@ -128,9 +128,10 @@ On a new Linux machine (instructions here for an AWS Amazon Linux instance):
 	sudo pip install s3cmd
 	sudo pip-3.4 install -r requirements.txt
 
-Get the PDF sanitization script and install QPDF, which on Amazon Linux must unfortunately be compiled from source:
+Get the PDF redaction script, install its dependencies, and install QPDF, which on Amazon Linux must unfortunately be compiled from source:
 
-	wget https://raw.githubusercontent.com/JoshData/contact_removal/master/contact_remover.py
+	wget https://raw.githubusercontent.com/JoshData/pdf-redactor/master/pdf_redactor.py
+	pip3 install $(curl https://raw.githubusercontent.com/JoshData/pdf-redactor/master/requirements.txt)
 
 	sudo yum install gcc-c++ pcre-devel
 	wget http://downloads.sourceforge.net/project/qpdf/qpdf/6.0.0/qpdf-6.0.0.tar.gz

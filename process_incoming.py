@@ -23,17 +23,31 @@ def write_report_json_files():
 
     # Write the transformed dicts out to disk.
     for report in reports:
-        process_file(transform_report_metadata, report,
-            os.path.join(REPORTS_DIR, "reports", report[0]["ProductNumber"] + ".json"))
+        out_fn = os.path.join(REPORTS_DIR, "reports", report[0]["ProductNumber"] + ".json")
+        try:
+            content = transform_report_metadata(report)
+        except Exception as e:
+            print(out_fn)
+            print("\t", e)
+        else:
+            with open(out_fn, "w") as f2:
+                f2.write(content)
 
-    # Collect a list of author names.
+    # Collect some metadata to put into the PDFs.
+    file_metadata = dict()
+    for report in reports:
+        for version in report:
+            for fmt in version['FormatList']:
+                file_metadata[fmt["_"]["filename"]] = (report, version)
+
+    # Collect a list of author names which we'll use for redaction.
     author_names = set()
     for report in reports:
         for version in report:
             for author in version["Authors"]:
                 author_names.add(author["FirstName"]) # has full name
 
-    return author_names
+    return file_metadata, author_names
 
 def load_reports_metadata():
     # Load all of the CRS reports metadata into memory. We do this because each report
@@ -134,7 +148,7 @@ def transform_report_metadata(meta):
     ]), indent=2)
 
 
-def clean_files(author_names):
+def clean_files(file_metadata, author_names):
     # Use a multiprocessing pool to divide the load across processors.
     from multiprocessing import Pool
     pool = Pool()
@@ -149,9 +163,9 @@ def clean_files(author_names):
         out_fn = os.path.join(REPORTS_DIR, "files", os.path.basename(fn))
         if not os.path.exists(out_fn):
             if fn.endswith(".html"):
-                ar = pool.apply_async(process_file, [clean_html, fn, out_fn, author_names])
+                ar = pool.apply_async(trap_all, [clean_html, fn, out_fn, author_names])
             elif fn.endswith(".pdf"):
-                ar = pool.apply_async(clean_pdf, [fn, out_fn])
+                ar = pool.apply_async(trap_all, [clean_pdf, fn, out_fn, file_metadata.get("files/" + os.path.basename(fn)), author_names])
             else:
                 continue
             open_tasks.append(ar)
@@ -165,11 +179,14 @@ def clean_files(author_names):
     pool.join()
 
 
-def clean_html(content, author_names):
+def clean_html(content_fn, out_fn, author_names):
     import lxml.etree
 
     # The HTML file contains the entire HTML page from CRS.gov that the report was
     # scraped from. Extract just the report content, dropping the CRS.gov header/footer.
+
+    with open(content_fn) as f:
+        content = f.read()
 
     # Some reports are invalid HTML with a whole doctype and html node inside
     # the main report container element. See if this is one of those documents.
@@ -200,7 +217,7 @@ def clean_html(content, author_names):
     def scrub_text(text):
         # Scrub crs.gov email addresses from the text.
         # There's a separate filter later for addresses in mailto: links.
-        text = re.sub(r"[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+@crs\.gov", "[email address scrubbed]", text)
+        text = re.sub(r"[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+@crs\.(loc\.)?gov", "[email address scrubbed]", text)
 
         # Scrub CRS telephone numbers --- in 7-xxxx format. We have to exclude
         # cases that have a precediing digit, because otherwise we match
@@ -311,35 +328,13 @@ def clean_html(content, author_names):
         }
     )
 
-    return content
+    # Write it out.
+    with open(out_fn, "w") as f2:
+        f2.write(content)
 
-
-def clean_pdf(in_file, out_file):
+def trap_all(func, in_file, *args):
     try:
-        import tempfile, shutil
-        with tempfile.NamedTemporaryFile() as f1:
-            with tempfile.NamedTemporaryFile() as f2:
-                # Clean the PDF by removing author contact information.
-                from contact_remover import remove_contacts_in_pdf
-                remove_contacts_in_pdf(in_file, f1.name)
-
-                # Add our own page to the end of the PDF. The qpdf command
-                # for this is pretty weird. All we're doing is appending a
-                # page.
-                import subprocess
-                subprocess.check_call(['qpdf', '--linearize', f1.name,
-                    "--pages", f1.name, "branding/pdf-addendum-page.pdf", "--",
-                    f2.name])
-
-                # Copy the final PDF to the output location.
-                shutil.copyfile(f2.name, out_file)
-
-        # Generate a thumbnail image of the PDF.
-        os.system("pdftoppm -png -singlefile -scale-to-x 600 -scale-to-y -1 %s %s" % (
-             out_file,
-             out_file.replace(".pdf", "") # pdftoppm adds ".png" to the end of the file name
-         ))
-
+        func(in_file, *args)
     except Exception as e:
         # Catch all exceptions because we are in a subprocess and untrapped
         # exceptions get lost.
@@ -347,28 +342,78 @@ def clean_pdf(in_file, out_file):
         print("\t", e)
         return
 
-def process_file(func, content_fn, out_fn, *args):
-    #print(out_fn, "...")
+def clean_pdf(in_file, out_file, file_metadata, author_names):
+    from pdf_redactor import redactor, RedactorOptions
+    import io, re, subprocess, tempfile, shutil
 
-    if isinstance(content_fn, str):
-        # content_fn is a filename to open
-        with open(content_fn) as f1:
-            content = f1.read()
-    else:
-        # content_fn is a data structure
-        content = content_fn
+    # Form a regex for author names, replacing spaces with optional whitespace.
 
-    # run the function
-    try:
-        content = func(content, *args)
-    except Exception as e:
-        print(out_fn)
-        print("\t", e)
-        return
+    author_name_regex = "|".join(
+        r"\s?".join(re.escape(an1) for an1 in an.split(" "))
+        for an in author_names
+    )
 
-    # write out the output
-    with open(out_fn, "w") as f2:
-        f2.write(content)
+    # Set redaction options.
+
+    redactor_options = RedactorOptions()
+
+    redactor_options.metadata_filters = {
+        # Copy from report metadata.
+        "Title": [lambda value : file_metadata[1]['Title']],
+        "Author": [lambda value : "Congressional Research Service, Library of Congress, USA"],
+        "CreationDate": [lambda value : file_metadata[1]['CoverDate']],
+
+        # Set these.
+        "Producer": [lambda value : "EveryCRSReport.com"],
+        "ModDate": [lambda value : datetime.datetime.utcnow()],
+
+        # Clear all other fields.
+        "DEFAULT": [lambda value : None],
+    }
+
+    # Clear XMP.
+    redactor_options.xmp_filters = [lambda xml : None]
+
+    # Redact phone numbers, email addresses, and author names.
+    # See the notes on the regular expressions above for the HTML scrubber.
+    redactor_options.content_filters = [
+        (re.compile("((^|[^\d])7-)\d{4}"), lambda m : m.group(1) + "...."), # use a symbol likely to be available
+        (re.compile("\(\d\d\d\) \d\d\d-\d\d\d\d"), lambda m : "[redacted]"), # use a symbol likely to be available
+        (re.compile("[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+(@crs.?(loc|gov))"), lambda m : ("[redacted]" + m.group(1))),
+        (re.compile(author_name_regex), lambda m : "(name redacted)"),
+    ]
+
+    # Run qpdf to decompress.
+
+    data = subprocess.check_output(['qpdf', '--qdf', '--stream-data=uncompress', in_file, "-"])
+
+    with tempfile.NamedTemporaryFile() as f1:
+        with tempfile.NamedTemporaryFile() as f2:
+
+            # Run the redactor. Since qpdf in the next step requires an actual file for the input,
+            # write the output to a file.
+            redactor_options.input_stream = io.BytesIO(data)
+            redactor_options.output_stream = f1
+            redactor(redactor_options)
+            f1.flush()
+
+            # Linearize and add our own page to the end of the PDF. The qpdf command
+            # for this is pretty weird. All we're doing is appending a page.
+            import subprocess
+            subprocess.check_call(['qpdf', '--linearize', f1.name,
+                "--pages", f1.name, "branding/pdf-addendum-page.pdf", "--",
+                f2.name])
+
+            # Copy the final PDF to the output location. We don't write directly to
+            # out_file in the previous qpdf step in case of errors. If there's an
+            # error during writing, let's not leave a broken file.
+            shutil.copyfile(f2.name, out_file)
+
+    # Generate a thumbnail image of the PDF.
+    os.system("pdftoppm -png -singlefile -scale-to-x 600 -scale-to-y -1 %s %s" % (
+         out_file,
+         out_file.replace(".pdf", "") # pdftoppm adds ".png" to the end of the file name
+     ))
 
 
 # MAIN
@@ -379,7 +424,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(REPORTS_DIR, 'files'), exist_ok=True)
 
     # Combine and transform the report JSON.
-    author_names = write_report_json_files()
+    file_metadata, author_names = write_report_json_files()
 
     # Clean/sanitize the HTML and PDF files.
-    clean_files(author_names)
+    clean_files(file_metadata, author_names)
