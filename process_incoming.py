@@ -349,6 +349,9 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
     from pdf_redactor import redactor, RedactorOptions
     import io, re, subprocess, tempfile, shutil
 
+    if file_metadata is None:
+        raise ValueError("This file is not mentioned in any document!")
+
     # Form a regex for author names, replacing spaces with optional whitespace.
 
     author_name_regex = "|".join(
