@@ -19,27 +19,12 @@ REPORTS_DIR = 'reports'
 
 
 def write_report_json_files():
-    # Combine and transform the report JSON.
-    reports = load_reports_metadata()
+    # Load our block list.
+    with open("withheld-reports.txt") as f:
+        withheld_reports = set(line.split("\t")[0] for line in f)
 
-    # Write the transformed dicts out to disk.
-    for report in reports:
-        out_fn = os.path.join(REPORTS_DIR, "reports", report[0]["ProductNumber"] + ".json")
-        try:
-            content = transform_report_metadata(report)
-        except Exception as e:
-            print(out_fn)
-            print("\t", e)
-        else:
-            with open(out_fn, "w") as f2:
-                f2.write(content)
-
-    # Collect some metadata to put into the PDFs.
-    file_metadata = dict()
-    for report in reports:
-        for version in report:
-            for fmt in version['FormatList']:
-                file_metadata[fmt["_"]["filename"]] = (report, version)
+    # Load the incoming report JSON metadata.
+    reports = load_reports_metadata(withheld_reports)
 
     # Collect a list of author names which we'll use for redaction.
     author_names = set()
@@ -48,9 +33,35 @@ def write_report_json_files():
             for author in version["Authors"]:
                 author_names.add(author["FirstName"]) # has full name
 
-    return file_metadata, author_names
+    # Transformed the dicts and write them out to disk.
+    all_files = set()
+    for i, report in enumerate(reports):
+        # Construct a file name for the JSON.
+        out_fn = os.path.join(REPORTS_DIR, "reports", report[0]["ProductNumber"] + ".json")
 
-def load_reports_metadata():
+        # Remember it so we can delete orphaned files.
+        all_files.add(out_fn)
+
+        # Transform and write it out.
+        try:
+            reports[i] = transform_report_metadata(report)
+        except Exception as e:
+            print(out_fn)
+            print("\t", e)
+        else:
+            with open(out_fn, "w") as f2:
+                f2.write(json.dumps(reports[i], indent=2))
+
+    # Delete orphaned files.
+    for fn in glob.glob(os.path.join(REPORTS_DIR, 'reports', '*')):
+        if fn not in all_files:
+            print("deleting", fn)
+            os.unlink(fn)
+
+    return (reports, author_names)
+
+
+def load_reports_metadata(withheld_reports):
     # Load all of the CRS reports metadata into memory. We do this because each report
     # is spread across multiple JSON files, each representing a snapshop of a metadata
     # record at a point in time when we fetched the information. The metadata snapshots
@@ -75,6 +86,10 @@ def load_reports_metadata():
             except ValueError as e:
                 print(fn, e)
                 continue
+
+        # Skip reports in our withheld_reports list.
+        if doc['ProductNumber'] in withheld_reports:
+            continue
 
         # Validate and normalize the fetch date and CoverDate into an ISO date string.
         # We need these for chronological sorting but turning them into datetime instances
@@ -116,7 +131,7 @@ def transform_report_metadata(meta):
 
     m = meta[0]
 
-    return json.dumps(collections.OrderedDict([
+    return collections.OrderedDict([
         ("id", m["PrdsProdId"]), # report ID, which is persistent across CRS updates to a report
         ("number", m["ProductNumber"]), # report display number, e.g. 96-123
         ("active", m["StatusFlag"] == "Active"), # not sure
@@ -146,10 +161,10 @@ def transform_report_metadata(meta):
             ])
             for mm in meta
         ]),
-    ]), indent=2)
+    ])
 
 
-def clean_files(file_metadata, author_names):
+def clean_files(reports, author_names):
     # Use a multiprocessing pool to divide the load across processors.
     from multiprocessing import Pool
     pool = Pool()
@@ -159,16 +174,28 @@ def clean_files(file_metadata, author_names):
     # own SHA1 hash in their file name, we know once we processed it that it's
     # done. If we change the logic in this module then you should delete the
     # whole reports/files directory and re-run this.
-    files_to_process = glob.glob(os.path.join(INCOMING_DIR, "files/*"))
-    random.shuffle(files_to_process)
+    def iter_files():
+        for report in reports:
+            for version in report["versions"]:
+                for format in version["formats"]:
+                    yield (report, version, format["filename"])
+
+    all_files = set()
     open_tasks = []
-    for fn in tqdm.tqdm(files_to_process, desc="cleaning HTML/PDFs"):
-        out_fn = os.path.join(REPORTS_DIR, "files", os.path.basename(fn))
-        if not os.path.exists(out_fn):
+    process_list = sorted(iter_files(), key=lambda x:x[2])
+    for report, version, fn in tqdm.tqdm(process_list, desc="cleaning HTML/PDFs"):
+        # Remmeber that this was a file and also remember any related files we generate from it.
+        all_files.add(fn)
+        if fn.endswith(".pdf"): all_files.add(fn.replace(".pdf", ".png"))
+        
+        # Process the file.
+        in_fn = os.path.join(INCOMING_DIR, fn)
+        out_fn = os.path.join(REPORTS_DIR, fn)
+        if os.path.exists(in_fn) and not os.path.exists(out_fn):
             if fn.endswith(".html"):
-                ar = pool.apply_async(trap_all, [clean_html, fn, out_fn, author_names])
+                ar = pool.apply_async(trap_all, [clean_html, in_fn, out_fn, author_names])
             elif fn.endswith(".pdf"):
-                ar = pool.apply_async(trap_all, [clean_pdf, fn, out_fn, file_metadata.get("files/" + os.path.basename(fn)), author_names])
+                ar = pool.apply_async(trap_all, [clean_pdf, in_fn, out_fn, version, author_names])
             else:
                 continue
             open_tasks.append(ar)
@@ -180,6 +207,12 @@ def clean_files(file_metadata, author_names):
     # Wait for the last processes to be done.
     pool.close()
     pool.join()
+
+    # Delete orphaned files.
+    for fn in glob.glob(os.path.join(REPORTS_DIR, 'files', '*')):
+        if fn[len(REPORTS_DIR)+1:] not in all_files:
+            print("deleting", fn)
+            os.unlink(fn)
 
 
 def clean_html(content_fn, out_fn, author_names):
@@ -350,9 +383,6 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
     from pdf_redactor import redactor, RedactorOptions
     import io, re, subprocess, tempfile, shutil
 
-    if file_metadata is None:
-        raise ValueError("This file is not mentioned in any document!")
-
     # Form a regex for author names, replacing spaces with optional whitespace.
 
     author_name_regex = "|".join(
@@ -366,9 +396,9 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
 
     redactor_options.metadata_filters = {
         # Copy from report metadata.
-        "Title": [lambda value : file_metadata[1]['Title']],
+        "Title": [lambda value : file_metadata['title']],
         "Author": [lambda value : "Congressional Research Service, Library of Congress, USA"],
-        "CreationDate": [lambda value : file_metadata[1]['CoverDate']],
+        "CreationDate": [lambda value : file_metadata['date']],
 
         # Set these.
         "Producer": [lambda value : "EveryCRSReport.com"],
@@ -434,7 +464,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(REPORTS_DIR, 'files'), exist_ok=True)
 
     # Combine and transform the report JSON.
-    file_metadata, author_names = write_report_json_files()
+    reports, author_names = write_report_json_files()
 
     # Clean/sanitize the HTML and PDF files.
-    clean_files(file_metadata, author_names)
+    clean_files(reports, author_names)

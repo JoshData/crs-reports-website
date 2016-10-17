@@ -308,6 +308,22 @@ def generate_report_page(report):
         if os.path.exists(thumbnail_source_fn) and not os.path.exists(thumbnail_fn):
             os.link(thumbnail_source_fn, thumbnail_fn)
 
+
+def remove_orphaned_reports(reports):
+    # Delete any report HTML, JSON, and thumbnail files for reports that no longer exist.
+
+    # Build a dictionary of all expected report paths, minus file extension.
+    all_reports = set(get_report_url_path(report, '') for report in reports)
+
+    # Scan existing files.
+    for fn in glob.glob(os.path.join(BUILD_DIR, 'reports', '*')):
+        basename = os.path.splitext(fn)[0][len(BUILD_DIR)+1:]
+        if basename not in all_reports:
+            print("deleting", fn)
+            os.unlink(fn)
+
+
+
 def create_feed(reports, title, fn):
     # The feed is a notice of new (versions of) reports, so collect the
     # most recent report-versions.
@@ -377,6 +393,9 @@ if __name__ == "__main__":
     for report in tqdm.tqdm(reports, desc="report pages"):
         generate_report_page(report)
 
+    # Delete any generated report files for reports we are no longer publishing.
+    remove_orphaned_reports(reports)
+
     # Generate topic pages and topic RSS feeds.
     by_topic = index_by_topic(reports)
     for group in tqdm.tqdm(by_topic, desc="topic pages"):
@@ -396,7 +415,8 @@ if __name__ == "__main__":
     # Copy static assets (CSS etc.).
     copy_static_assets()
 
-    # Hard-link the reports/files directory into the build directory.
+    # Sym-link the reports/files directory into the build directory since we can just
+    # expose these paths directly.
     if not os.path.exists("build/files"):
         print("Creating build/files.")
         os.symlink("../reports/files", "build/files")
