@@ -274,13 +274,14 @@ def clean_html(content_fn, out_fn, author_names):
         if tag.tag == "a" and tag.text == "Print Version":
             tag.getparent().remove(tag)
 
-        # Scrub mailto: links, which have author emails, which we want to scrub.
-        # I'm not sure if these ever appear outside of author info at the top
-        # which we've already scrubbed, but to be sure we still do this.
+        # Scrub mailto: links, which have author emails, which we want to scrub,
+        # as well as email addresses of other people mentioned in the reports.
         if 'href' in tag.attrib and tag.attrib['href'].lower().startswith("mailto:"):
             tag.tag = "span"
             del tag.attrib['href']
             tag.text = "[email address scrubbed]"
+            for n in tag: # remove all child nodes
+                tag.remove(n)
 
         # Demote h#s. These seem to occur around the table of contents only. Don't
         # demote the one we just made above for the title.
