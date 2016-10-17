@@ -434,7 +434,16 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
             # write the output to a file.
             redactor_options.input_stream = io.BytesIO(data)
             redactor_options.output_stream = f1
-            redactor(redactor_options)
+            try:
+                redactor(redactor_options)
+            except:
+                # The redactor has some trouble on old files. Post them anyway.
+                if file_metadata['date'] < "2003-01-01":
+                    print("Writing", out_file, "without redacting.")
+                    f1.seek(0)
+                    f1.write(data)
+                else:
+                    raise
             f1.flush()
 
             # Linearize and add our own page to the end of the PDF. The qpdf command
