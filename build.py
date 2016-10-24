@@ -353,6 +353,38 @@ def create_feed(reports, title, fn):
         fe.pubdate(version["date"])
     feed.rss_file(os.path.join(BUILD_DIR, fn))
 
+def create_sitemap(reports):
+    import xml.etree.ElementTree as ET
+    root = ET.Element(
+        "urlset",
+        {
+            "xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"
+        })
+    root.text = "\n  " # pretty
+    for report in reports:
+        node = ET.SubElement(root, "url")
+        node.text = "\n    " # pretty
+        node.tail = "\n  " # pretty
+
+        n = ET.SubElement(node, "loc")
+        n.text = SITE_URL + "/" + get_report_url_path(report, '.html')
+        n.tail = "\n    " # pretty
+
+        n = ET.SubElement(node, "lastmod")
+        n.text = report["versions"][0]["date"].date().isoformat()
+        n.tail = "\n  " # pretty
+    node.tail = "\n" # change the pretty whitespace of the last child
+
+    # Serialize
+    xml = ET.tostring(root, encoding='utf8')
+
+    # check this is a valid sitemap
+    assert len(reports) <= 50000
+    assert len(xml) <= 10485760
+
+    with open(os.path.join(BUILD_DIR, "sitemap.xml"), "wb") as f:
+        f.write(xml)
+
 def generate_csv_listing():
     # Generate a CSV listing of all of the reports.
     with open(os.path.join(BUILD_DIR, "reports.csv"), "w") as f:
@@ -422,4 +454,6 @@ if __name__ == "__main__":
         os.symlink("../reports/files", "build/files")
 
     # Create the main feed.
+    print("Feed and sitemap...")
     create_feed(reports, "New Reports", "rss.xml")
+    create_sitemap(reports)
