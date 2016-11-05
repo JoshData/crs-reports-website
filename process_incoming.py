@@ -461,10 +461,10 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
             shutil.copyfile(f2.name, out_file)
 
     # Generate a thumbnail image of the PDF.
-    os.system("pdftoppm -png -singlefile -scale-to-x 600 -scale-to-y -1 %s %s" % (
-         out_file,
-         out_file.replace(".pdf", "") # pdftoppm adds ".png" to the end of the file name
-     ))
+    # Note that pdftoppm adds ".png" to the end of the file name.
+    subprocess.check_call(['pdftoppm', '-png', '-singlefile',
+                           '-scale-to-x', '600', '-scale-to-y', '-1',
+                           out_file, out_file.replace(".pdf", "")])
 
 
 # MAIN
