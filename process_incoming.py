@@ -33,7 +33,7 @@ def write_report_json_files():
             for author in version["Authors"]:
                 author_names.add(author["FirstName"]) # has full name
 
-    # Transformed the dicts and write them out to disk.
+    # Transform the dicts and write them out to disk.
     all_files = set()
     for i, report in enumerate(reports):
         # Construct a file name for the JSON.
@@ -256,7 +256,7 @@ def clean_html(content_fn, out_fn, author_names):
         text = re.sub(r"[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+@crs\.(loc\.)?gov", "[email address scrubbed]", text)
 
         # Scrub CRS telephone numbers --- in 7-xxxx format. We have to exclude
-        # cases that have a precediing digit, because otherwise we match
+        # cases that have a preceding digit, because otherwise we match
         # strings like "2007-2009". But the number can also occur at the start
         # of a node, so it may be the start of a string.
         text = re.sub(r"(^|[^\d])7-\d\d\d\d", r"\1[phone number scrubbed]", text)

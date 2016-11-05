@@ -5,7 +5,7 @@
 # Assumptions:
 #
 # * The CRS report metadata and document files are in the 'reports/reports' and 'reports/files' directories.
-#   (Thie JSON metadata is the transformed metadata that we published, not what we scraped from CRS.)
+#   (This JSON metadata is the transformed metadata that we published, not what we scraped from CRS.)
 #
 # Output:
 #
