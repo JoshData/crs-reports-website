@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # Sample script to download CRS reports from EveryCRSReport.com.
 #
 # EveryCRSReport publishes a listing file at
