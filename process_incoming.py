@@ -250,6 +250,8 @@ def clean_html(content_fn, out_fn, author_names):
 
     allowed_classes = { 'ReportHeader' }
 
+    author_names_re = re.compile("|".join([re.escape(an) for an in author_names]))
+
     def scrub_text(text):
         # Scrub crs.gov email addresses from the text.
         # There's a separate filter later for addresses in mailto: links.
@@ -265,7 +267,7 @@ def clean_html(content_fn, out_fn, author_names):
         text = re.sub(r"\(\d\d\d\) \d\d\d-\d\d\d\d", "[phone number scrubbed]", text)
 
         # Scrub all author names.
-        text = re.sub("|".join([re.escape(an) for an in author_names]), "[author name scrubbed]", text)
+        text = author_names_re.sub("[author name scrubbed]", text)
 
         return text
 
