@@ -5,13 +5,13 @@
 # Assumptions:
 #
 # * The CRS report metadata and document files are in the 'reports/reports' and 'reports/files' directories.
-#   (Thie JSON metadata is the transformed metadata that we published, not what we scraped from CRS.)
+#   (This JSON metadata is the transformed metadata that we published, not what we scraped from CRS.)
 #
 # Output:
 #
 # * A static website in ./build.
 
-import sys, os, os.path, glob, shutil, collections, json, datetime, re, hashlib, csv
+import sys, os, os.path, glob, shutil, collections, json, datetime, re, hashlib, csv, subprocess
 
 import tqdm
 import pytz
@@ -193,7 +193,7 @@ def copy_static_assets():
     shutil.copytree("static", static_dir, copy_function=os.link)
 
     # Extract the favicon assets.
-    os.system("unzip -d %s -u branding/favicons.zip" % BUILD_DIR)
+    subprocess.check_call(["unzip", "-d", BUILD_DIR, "-u", "branding/favicons.zip"])
 
 def get_report_url_path(report, ext):
     # Sanity check that report numbers won't cause invalid file paths.

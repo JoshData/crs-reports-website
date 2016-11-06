@@ -33,7 +33,7 @@ def write_report_json_files():
             for author in version["Authors"]:
                 author_names.add(author["FirstName"]) # has full name
 
-    # Transformed the dicts and write them out to disk.
+    # Transform the dicts and write them out to disk.
     all_files = set()
     for i, report in enumerate(reports):
         # Construct a file name for the JSON.
@@ -250,13 +250,15 @@ def clean_html(content_fn, out_fn, author_names):
 
     allowed_classes = { 'ReportHeader' }
 
+    author_names_re = re.compile("|".join([re.escape(an) for an in author_names]))
+
     def scrub_text(text):
         # Scrub crs.gov email addresses from the text.
         # There's a separate filter later for addresses in mailto: links.
         text = re.sub(r"[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+@crs\.(loc\.)?gov", "[email address scrubbed]", text)
 
         # Scrub CRS telephone numbers --- in 7-xxxx format. We have to exclude
-        # cases that have a precediing digit, because otherwise we match
+        # cases that have a preceding digit, because otherwise we match
         # strings like "2007-2009". But the number can also occur at the start
         # of a node, so it may be the start of a string.
         text = re.sub(r"(^|[^\d])7-\d\d\d\d", r"\1[phone number scrubbed]", text)
@@ -265,7 +267,7 @@ def clean_html(content_fn, out_fn, author_names):
         text = re.sub(r"\(\d\d\d\) \d\d\d-\d\d\d\d", "[phone number scrubbed]", text)
 
         # Scrub all author names.
-        text = re.sub("|".join([re.escape(an) for an in author_names]), "[author name scrubbed]", text)
+        text = author_names_re.sub("[author name scrubbed]", text)
 
         return text
 
@@ -467,10 +469,10 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
             shutil.copyfile(f2.name, out_file)
 
     # Generate a thumbnail image of the PDF.
-    os.system("pdftoppm -png -singlefile -scale-to-x 600 -scale-to-y -1 %s %s" % (
-         out_file,
-         out_file.replace(".pdf", "") # pdftoppm adds ".png" to the end of the file name
-     ))
+    # Note that pdftoppm adds ".png" to the end of the file name.
+    subprocess.check_call(['pdftoppm', '-png', '-singlefile',
+                           '-scale-to-x', '600', '-scale-to-y', '-1',
+                           out_file, out_file.replace(".pdf", "")])
 
 
 # MAIN
