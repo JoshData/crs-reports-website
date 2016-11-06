@@ -316,6 +316,14 @@ def clean_html(content_fn, out_fn, author_names):
             for n in tag: # remove all child nodes
                 tag.remove(n)
 
+        # Rewrite internal crs.gov links to point to the corresponding report on
+        # everycrsreport.com.
+        if tag.tag == "a" and "href" in tag.attrib:
+            if tag.attrib["href"].startswith("http://www.crs.gov/Reports/"):
+                tag.attrib["href"] = re.sub("^http://www\\.crs\\.gov/Reports/([0-9A-Z-]+)$",
+                                            "https://www.everycrsreport.com/reports/\\1.html",
+                                            tag.attrib["href"])
+
         # Demote h#s. These seem to occur around the table of contents only. Don't
         # demote the one we just made above for the title.
         if tag.tag in ("h1", "h2", "h3", "h4", "h5") and "Title" not in css_classes:
