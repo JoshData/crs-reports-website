@@ -42,12 +42,13 @@ def download_file(url, fn, expected_digest):
 
     # Download and save the file.
     print(fn + "...")
-    with open(fn, 'wb') as f:
-        try:
-            with urllib.request.urlopen(url) as resp:
-                f.write(resp.read())
-        except urllib.error.HTTPError as e:
-            print("", e)
+    try:
+        with urllib.request.urlopen(url) as resp:
+            data = resp.read()
+            with open(fn, 'wb') as f:
+                f.write(data)
+    except urllib.error.HTTPError as e:
+        print("", e)
     time.sleep(1)
 
 # Ensure output directories exist.
