@@ -21,6 +21,7 @@ import io
 import csv
 import os, os.path
 import json
+import time
 
 api_base_url = "https://www.everycrsreport.com/"
 
@@ -47,6 +48,7 @@ def download_file(url, fn, expected_digest):
                 f.write(resp.read())
         except urllib.error.HTTPError as e:
             print("", e)
+    time.sleep(1)
 
 # Ensure output directories exist.
 os.makedirs("reports/reports", exist_ok=True)
