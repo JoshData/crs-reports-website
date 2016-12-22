@@ -296,17 +296,28 @@ def generate_report_page(report):
     # memory because then we have to worry about avoiding changes in field
     # order when round-tripping, the digest would change, and also hard linking
     # is cheaper.
-    json_fn = os.path.join(BUILD_DIR, get_report_url_path(report, '.json'))
-    if not os.path.exists(json_fn):
-        os.link(os.path.join(REPORTS_DIR, "reports/%s.json" % report["number"]), json_fn)
+    def make_link(src, dst):
+        # If file exists but inodes are not the same, then must
+        # unlink and link. If src is None, delete dst.
+        if os.path.exists(dst):
+            if src and os.stat(src).st_ino == os.stat(dst).st_ino:
+                return # files are already hardlinks
+            os.unlink(dst) # destination exists and is not a hardlink
+        if src:
+            os.link(src, dst)
+    make_link(
+        os.path.join(REPORTS_DIR, "reports/%s.json" % report["number"]),
+        os.path.join(BUILD_DIR, get_report_url_path(report, '.json')))
 
     # Hard link the thumbnail image of the most recent PDF, if it exists, as
     # the thumbnail for the report.
+    thumbnail_source_fn = None # no thumbnail available
+    thumbnail_fn = os.path.join(BUILD_DIR, get_report_url_path(report, '.png'))
     if most_recent_pdf_fn:
         thumbnail_source_fn = os.path.join(REPORTS_DIR, most_recent_pdf_fn.replace(".pdf", ".png"))
-        thumbnail_fn = os.path.join(BUILD_DIR, get_report_url_path(report, '.png'))
-        if os.path.exists(thumbnail_source_fn) and not os.path.exists(thumbnail_fn):
-            os.link(thumbnail_source_fn, thumbnail_fn)
+        if not os.path.exists(thumbnail_source_fn):
+            thumbnail_source_fn = None
+    make_link(thumbnail_source_fn, thumbnail_fn)
 
 
 def remove_orphaned_reports(reports):
