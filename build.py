@@ -220,7 +220,7 @@ def generate_report_page(report):
     if os.path.exists(os.path.join(BUILD_DIR, output_fn)):
         with open(os.path.join(BUILD_DIR, output_fn)) as f:
             existing_page = f.read()
-            m = re.search(r'<meta name="topics" content="(.*)" />\s+<meta name="source-content-hash" content="(.*)" />', existing_page)
+            m = re.search(r'<meta name="topics" content="(.*)" />\s+<meta name="source-content-hash" content="(.*?)" />', existing_page)
             if not m:
                 raise Exception("Generated report file doesn't match pattern.")
             topics = m.group(1).split(",")
