@@ -45,6 +45,12 @@ for line in open("topic_areas.txt"):
         "sort": 1,
     })
 topic_areas.append({
+    "name": "CRS Insights",
+    "terms": set(),
+    "slug": "crs-insights",
+    "sort": 0,
+})
+topic_areas.append({
     "name": "Uncategorized",
     "terms": set(),
     "slug": "uncategorized",
@@ -278,6 +284,8 @@ def generate_report_page(report):
                 # if no text is available, fall back to title and summary
                 topics.append(topic)
                 break # only add topic once
+        if topic["slug"] == "crs-insights" and report["typeId"] == "INSIGHTS":
+            topics.append(topic)
     report["topics"] = sorted(topics, key = lambda topic : topic["name"])
 
     # Generate the report HTML page.
