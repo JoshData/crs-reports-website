@@ -288,11 +288,18 @@ def generate_report_page(report):
             topics.append(topic)
     report["topics"] = sorted(topics, key = lambda topic : topic["name"])
 
+    # Some reports have summaries that are just the whole report
+    # in plain text. Hide those summaries.
+    summary = report["versions"][0]["summary"].strip()
+    show_summary = not most_recent_text \
+        or (len(summary) > 10) and (len(summary) < .25*len(most_recent_text))
+
     # Generate the report HTML page.
     generate_static_page("report.html", {
         "report": report,
         "html": most_recent_text,
         "thumbnail_url": SITE_URL + "/" + get_report_url_path(report, '.png'),
+        "show_summary": show_summary,
 
         # cache some information
         "source_content_hash": current_hash,

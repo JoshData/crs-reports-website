@@ -46,7 +46,13 @@
 
 <div class="row">
     <div class="col-sm-8">
-        <div class="report-summary">{{report.versions[0].summary|format_summary|safe}}</div>
+      {% if show_summary %}
+          <div class="report-summary">{{report.versions[0].summary|format_summary|safe}}</div>
+      {% elif html %}
+        <div id="report-content">
+            {{html|safe}}
+        </div>
+      {% endif %}
     </div> <!-- /col -->
 
     <div class="col-sm-4">
@@ -110,6 +116,7 @@
 
 </div> <!-- /row -->
 
+{% if show_summary %}
 <div class="row">
     <div class="col-sm-8">
         {% if html %}
@@ -119,6 +126,7 @@
         {% endif %}
     </div> <!-- /col -->
 </div> <!-- /row -->
+{% endif %}
 
 </div>
 {% endblock %}

@@ -195,6 +195,8 @@ footer {
 #report-page .report-summary {
     font-size: 15.5px;
     line-height: 140%;
+    padding-bottom: 1em;
+    border-bottom: 1px solid #CCC;
 }
     #report-page .report-summary p {
         margin-bottom: 1em;
@@ -246,6 +248,4 @@ footer {
 
 #report-content {
     margin-top: 1em;
-    border-top: 1px solid #CCC;
-    padding-top: 1em;
 }
