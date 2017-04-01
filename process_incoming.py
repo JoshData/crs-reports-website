@@ -87,6 +87,13 @@ def load_reports_metadata(withheld_reports):
                 print(fn, e)
                 continue
 
+        # Skip document types that we have access to but do not want to
+        # expose publicly.
+        if doc['ProdTypeGroupCode'] not in ("REPORTS", "INSIGHTS"):
+            if doc['ProdTypeGroupCode'] not in ("BLOG",):
+                print("Saw unrecognized ProdTypeGroupCode:", doc['ProdTypeGroupCode'])
+            continue
+
         # Skip reports in our withheld_reports list.
         if doc['ProductNumber'] in withheld_reports:
             continue
@@ -133,6 +140,8 @@ def transform_report_metadata(meta):
 
     return collections.OrderedDict([
         ("id", m["PrdsProdId"]), # report ID, which is persistent across CRS updates to a report
+        ("type", m['ProdTypeDisplayName']),
+        ("typeId", m['ProdTypeGroupCode']),
         ("number", m["ProductNumber"]), # report display number, e.g. 96-123
         ("active", m["StatusFlag"] == "Active"), # not sure
         ("versions", [
@@ -236,10 +245,12 @@ def clean_html(content_fn, out_fn, author_names):
         content = html5lib.parse(content, treebuilder="lxml")
     
     # Extract the report itself from the whole page.
-    content = content.find(".//*[@class='Report']")
-
-    if content is None:
-        raise ValueError("HTML page doesn't contain an element with the Report CSS class")
+    n = content.find(".//*[@class='Report']")
+    if n is None:
+        n = content.find(".//*[@id='Insightsdiv']/*[@class='ReportContent']")
+    if n is None:
+        raise ValueError("HTML page doesn't contain an element that we know to pull body content from")
+    content = n
 
     if extract_blockquote:
         content = content.find("{http://www.w3.org/1999/xhtml}blockquote")
