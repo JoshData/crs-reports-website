@@ -228,8 +228,14 @@ def clean_html(content_fn, out_fn, author_names):
     # the main report container element. See if this is one of those documents.
     extract_blockquote = ('<div class="Report"><!DOCTYPE' in content)
 
+    # Parse the page as HTML5. html5lib gives some warnings about malformed
+    # content that we don't care about -- hide warnings.
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        content = html5lib.parse(content, treebuilder="lxml")
+    
     # Extract the report itself from the whole page.
-    content = html5lib.parse(content, treebuilder="lxml")
     content = content.find(".//*[@class='Report']")
 
     if content is None:
