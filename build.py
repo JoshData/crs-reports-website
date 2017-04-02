@@ -148,8 +148,15 @@ def generate_static_page(fn, context, output_fn=None):
     env.filters['intcomma'] = intcomma
 
     def as_json(value):
-        import jinja2
-        return jinja2.Markup(json.dumps(value))
+        # Encode for the <script type="application/ld+json"> tag
+        # for Schema.org tags. Embedding JSON within HTML requires
+        # escaping "</script>" if it occurs within JSON.
+        import jinja2, json
+        value = json.dumps(value, sort_keys=True)
+        value = value.replace("<", r'\u003c')
+        value = value.replace(">", r'\u003e') # not necessary but for good measure
+        value = value.replace("&", r'\u0026') # not necessary but for good measure        import jinja2
+        return jinja2.Markup(value)
     env.filters['json'] = as_json
 
     # Load the template.
