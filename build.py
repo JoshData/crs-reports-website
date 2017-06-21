@@ -18,7 +18,6 @@ import pytz
 
 REPORTS_DIR = "reports"
 BUILD_DIR = "build"
-CACHE_DIR = "cache"
 SITE_NAME = "EveryCRSReport.com"
 SITE_URL = "https://www.EveryCRSReport.com"
 
@@ -30,6 +29,11 @@ def parse_dt(s, hasmicro=False, utc=False):
     dt = datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S" + (".%f" if hasmicro else ""))
     return (utc_tz if utc else us_eastern_tz).localize(dt)
 
+# Load config info --- some are passed into page templates.
+config = { }
+for line in open("credentials.txt"):
+    line = line.strip().split("=", 1) + [""] # ensure at least two items
+    config[line[0]] = line[1]
 
 # Load the topic areas and make slugs to use for topic page file names.
 topic_areas = { }
@@ -162,7 +166,15 @@ def generate_static_page(fn, context, output_fn=None):
     except Exception as e:
         print("Error loading template", fn)
         print(e)
-        #sys.exit(1)
+        sys.exit(1)
+
+    # Add some global context variables.
+
+    context.update({
+        "ALGOLIA_CLIENT_ID": config["ALGOLIA_CLIENT_ID"],
+        "ALGOLIA_SEARCH_ACCESS_KEY": config["ALGOLIA_SEARCH_ACCESS_KEY"],
+        "ALGOLIA_INDEX_NAME": config["ALGOLIA_INDEX_NAME"],
+    })
 
     # Execute the template.
 

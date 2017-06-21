@@ -6,3 +6,4 @@ lxml
 tqdm
 feedgen
 pytz
+algoliasearch

@@ -113,17 +113,42 @@ footer {
     margin: 4em auto 3em auto;
     max-width: 55em;
 }
-#search-block .our-gsc-wrapper {
-    min-height: 42px;
-}
 #search-block input {
     font-size: 22px;
     background-size: auto 70% !important;
     height: 34px;
+    width: 30em;
 }
-.gsc-control-cse { padding: 0 !important; }
-.gsc-search-box { padding: 0 !important; }
-.gsc-input-box { height: auto !important; }
+    .algolia-autocomplete {
+      width: 100%;
+    }
+    .algolia-autocomplete .aa-input, .algolia-autocomplete .aa-hint {
+      width: 100%;
+    }
+    .algolia-autocomplete .aa-hint {
+      color: #999;
+    }
+    .algolia-autocomplete .aa-dropdown-menu {
+      width: 100%;
+      background-color: #fff;
+      border: 1px solid #999;
+      border-top: none;
+    }
+    .algolia-autocomplete .aa-dropdown-menu .aa-suggestion {
+      cursor: pointer;
+      padding: 5px 4px;
+    }
+    .algolia-autocomplete .aa-dropdown-menu .aa-suggestion.aa-cursor {
+      background-color: #B2D7FF;
+    }
+    .algolia-autocomplete .aa-dropdown-menu .aa-suggestion em {
+      font-weight: bold;
+      font-style: normal;
+    }
+    .algolia-autocomplete .title {
+        color: rgb(199, 37, 78);
+        font-weight: bold;
+    }
 .our-links {
     text-align: right;
     margin-top: 1em;
@@ -166,6 +191,19 @@ footer {
     font-size: 90%;
     color: #666;
   }
+
+/* SEARCH PAGE */
+
+.ais-refinement-list--label {
+    font-weight: normal;
+}
+    .ais-refinement-list--count {
+        margin-left: .5em;
+        font-weight: normal;
+        font-size: 80%;
+        background-color: #EEE;
+        color: #333;
+    }
 
 /* COMMON FORMATTING FOR METADATA, SUMMARY */
 

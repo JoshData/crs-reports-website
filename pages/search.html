@@ -1,0 +1,132 @@
+{% extends "master.html" %}
+
+{% block title %}
+Search CRS Reports
+{% endblock %}
+
+{% block head %}
+
+{% endblock %}
+
+{% block body %}
+  <h1>Search CRS Reports</h1>
+
+  <div class="searchbox-container">
+    <div class="input-group">
+      <input type="text" class="form-control" id="q" placeholder="search for..." />
+      <span class="input-group-btn">
+        <button class="btn btn-default"><i class="fa fa-search"></i></button>
+      </span>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-4 col-lg-3" style="margin-top: 1em">
+      <h5><i class="fa fa-chevron-right"></i> Topic</h5>
+      <div id="topics"></div>
+
+      <h5><i class="fa fa-chevron-right"></i> Year Published</h5>
+      <div id="lastPubYear"></div>
+    </div>
+    <div class="col-sm-8 col-lg-9" style="margin-top: 1em">
+      <div id="stats" class="text-right text-muted"></div>
+      <div id="hits"></div>
+      <div id="pagination" class="text-center"></div>
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/instantsearch.js@1/dist/instantsearch.min.js"></script>
+  <script>
+    var search = instantsearch({
+      appId: '{{ALGOLIA_CLIENT_ID}}',
+      apiKey: '{{ALGOLIA_SEARCH_ACCESS_KEY}}',
+      indexName: '{{ALGOLIA_INDEX_NAME}}',
+      urlSync: true
+    });
+
+    search.addWidget(
+      instantsearch.widgets.searchBox({
+        container: '#q'
+      })
+    );
+
+    search.addWidget(
+      instantsearch.widgets.stats({
+        container: '#stats'
+      })
+    );
+
+    var hitTemplate =
+      '<div class="crs-report">' +
+      '    <p class="report-title"><a href="{\{url}}">{\{title}}</a></p>' +
+      '    <p class="report-metadata">' +
+      '      {\{date}}' +
+      '      <code>{\{reportNumber}}</code>' +
+      '    </p>' +
+      '    <div class="report-summary" style="max-height:4em; overflow: hidden">{\{summary}}</div>' +
+      '</div>';
+
+    var noResultsTemplate =
+      '<div class="text-center">No results found matching <strong>{\{query}}</strong>.</div>';
+
+    search.addWidget(
+      instantsearch.widgets.hits({
+        container: '#hits',
+        hitsPerPage: 20,
+        templates: {
+          empty: noResultsTemplate,
+          item: hitTemplate
+        },
+        transformData: function(hit) {
+          hit.stars = [];
+          for (var i = 1; i <= 5; ++i) {
+            hit.stars.push(i <= hit.rating);
+          }
+          return hit;
+        }
+      })
+    );
+
+    search.addWidget(
+      instantsearch.widgets.pagination({
+        container: '#pagination',
+        cssClasses: {
+          root: 'pagination',
+          active: 'active'
+        }
+      })
+    );
+
+    search.addWidget(
+      instantsearch.widgets.refinementList({
+        container: '#lastPubYear',
+        attributeName: 'lastPubYear',
+        sortBy: ['name:desc'],
+        limit: 100,
+        cssClasses: {
+          list: 'nav nav-list',
+          count: 'badge pull-right',
+          active: 'active'
+        }
+      })
+    );
+
+    search.addWidget(
+      instantsearch.widgets.refinementList({
+        container: '#topics',
+        attributeName: 'topics',
+        operator: 'or',
+        limit: 100,
+        cssClasses: {
+          list: 'nav',
+          count: 'badge pull-right'
+        }
+      })
+    );
+
+    search.start();
+
+  </script>
+{% endblock %}

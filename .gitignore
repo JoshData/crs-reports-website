@@ -1,6 +1,7 @@
 /incoming
 /reports
-/aws_credentials.txt
+/credentials.txt
 /build
 /cache
 __pycache__
+.index-cache.json

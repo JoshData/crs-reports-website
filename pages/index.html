@@ -46,14 +46,21 @@ Every CRS Report
 
 <div class="container">
 
-  <div id="search-block">
-  	<div class="our-gsc-wrapper">
-  		<gcse:search></gcse:search>
-  	</div>
-  	<div class="our-links">
-  		<a href="/topics.html">Browse by Topic</a>
-  	</div>
-  </div>
+  <form id="search-block" onsubmit="do_search(); return false;">
+    <table>
+    <tr>
+    <td>
+      <input type="text" id="search-input" class="form-control" autofocus="autofocus" placeholder="Search CRS reports for..." style="display: inline-block" />
+    </td>
+    <td>
+      <button class="btn btn-primary" onclick="do_search();" style="margin-left: 15px;"><i class="fa fa-search"></i> Search</button>
+    </td>
+    </tr>
+    </table>
+    <div class="our-links">
+      <a href="/topics.html">Browse by Topic</a>
+    </div>
+  </form>
 
   <div id="recent-reports">
   <h2>
@@ -86,24 +93,29 @@ Every CRS Report
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/algoliasearch/3/algoliasearch.min.js"></script>
+<script src="https://cdn.jsdelivr.net/autocomplete.js/0/autocomplete.min.js"></script>
 <script>
-  // Google Search Engine
-  (function() {
-    var cx = '014986166530157065869:wey2cphd9m0';
-    var gcse = document.createElement('script');
-    gcse.type = 'text/javascript';
-    gcse.async = true;
-    gcse.src = 'https://cse.google.com/cse.js?cx=' + cx;
-    var s = document.getElementsByTagName('script')[0];
-    s.parentNode.insertBefore(gcse, s);
-  })();
-
-  // Make all of the recent reports boxes the same height.
-  var h = 0;
-  $('.crs-report > div').each(function() {
-    var hh = $(this).innerHeight();
-    if (hh > h) h = hh;
+  var client = algoliasearch('{{ALGOLIA_CLIENT_ID}}', '{{ALGOLIA_SEARCH_ACCESS_KEY}}')
+  var index = client.initIndex('{{ALGOLIA_INDEX_NAME}}');
+  autocomplete('#search-input', { hint: false }, [
+    {
+      source: autocomplete.sources.hits(index, { hitsPerPage: 5 }),
+      displayKey: 'title',
+      templates: {
+        suggestion: function(suggestion) {
+          var node = $("<div><div class='title'></div> <div class='meta'></div></div>");
+          node.find('.title').text(suggestion.title);
+          node.find('.meta').text(suggestion.date + ". " + suggestion.reportNumber + ".");
+          return node.html();
+        }
+      }
+    }
+  ]).on('autocomplete:selected', function(event, suggestion, dataset) {
+    window.location = suggestion.url;
   });
-  $('.crs-report > div').height(h);
+  function do_search() {
+    window.location = '/search.html?q=' + encodeURIComponent($('#search-input').val());
+  }
 </script>
 {% endblock %}

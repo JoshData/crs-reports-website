@@ -118,6 +118,13 @@ The IAM account is given full access to the public website bucket in Properties 
 	  ]
 	}
 
+### Algolia search account
+
+We use Algolia.com as a hosted facted search service index service.
+
+* Create an index on Algolia. You'll put the name of the index into `credentials.txt` later.
+* Get the client ID, admin API key (read-write access to the index), and search-only access key (read-only/public access to the index). You'll put these into `credentials.txt` later.
+
 ### Server Preparation
 
 This section prepares a Linux machine that is ready to fetch the CRS reports from the private location and turn them into the public website. The machine need not be running all the time, but without it the website will not be updated.
@@ -138,12 +145,16 @@ Get the PDF redaction script, install its dependencies, and install QPDF, which 
 	tar -zxf qpdf-6.0.0.tar.gz
 	(cd qpdf-6.0.0/ && ./configure && make && sudo make install)
 
-Create a new file named `aws_credentials.txt` and put in it the AWS IAM user's access keys that have access to 1) the private S3 bucket holding the CRS reports archive and 2) the public S3 bucket holding the website content. Also set the names of the S3 buckets:
+Create a new file named `credentials.txt` and put in it the AWS IAM user's access keys that have access to 1) the private S3 bucket holding the CRS reports archive and 2) the public S3 bucket holding the website content. Also set the names of the S3 buckets. And add the Algolia account information.
 
 	AWS_ACCESS_KEY_ID=...
 	AWS_SECRET_ACCESS_KEY=...
 	AWS_INCOMING_S3_BUCKET=...
 	AWS_WEBSITE_S3_BUCKET=...
+	ALGOLIA_CLIENT_ID=...
+	ALGOLIA_ADMIN_ACCESS_KEY=...
+	ALGOLIA_SEARCH_ACCESS_KEY=...
+	ALGOLIA_INDEX_NAME=...
 
 ### Running the site generator
 
