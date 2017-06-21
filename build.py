@@ -31,31 +31,25 @@ def parse_dt(s, hasmicro=False, utc=False):
     return (utc_tz if utc else us_eastern_tz).localize(dt)
 
 
-# Load the categories.
-topic_areas = []
+# Load the topic areas and make slugs to use for topic page file names.
+topic_areas = { }
 for line in open("topic_areas.txt"):
     if line.startswith("#") or line.strip() == "": continue # comment or empty line
     terms = line.strip().split("|")
     name = terms[0]
-    if name.startswith("*"): name = name[1:]
-    topic_areas.append({
-        "name": name,
-        "terms": set(terms),
+    if name.startswith("*"): name = name[1:] # strip asterisk from name
+    topic_areas[name] = {
         "slug": re.sub(r"\W+", "-", name.lower()),
         "sort": 1,
-    })
-topic_areas.append({
-    "name": "CRS Insights",
-    "terms": set(),
+    }
+topic_areas["CRS Insights"] = {
     "slug": "crs-insights",
     "sort": 0,
-})
-topic_areas.append({
-    "name": "Uncategorized",
-    "terms": set(),
+}
+topic_areas["Uncategorized"] = {
     "slug": "uncategorized",
     "sort": 0,
-})
+}
 
 def load_all_reports():
     # Load all of the reports into memory, because we'll have to scan them all for what topic
@@ -99,10 +93,12 @@ def index_by_topic(reports):
     # Apply categories to the reports.
     return [{
                "topic": topic,
-               "reports": [r for r in reports if topic["slug"] in set(t["slug"] for t in r.get("topics") or [{"slug": "uncategorized"}])],
+               "slug": topic_areas[topic]["slug"],
+               "reports": [r for r in reports
+                           if topic in (r.get("topics") or ["Uncategorized"])],
            }
            for topic
-           in sorted(topic_areas, key = lambda topic : (topic["sort"], topic["name"]))]
+           in sorted(topic_areas, key = lambda topic : (topic_areas[topic]["sort"], topic))]
 
 
 def generate_static_page(fn, context, output_fn=None):
@@ -233,13 +229,11 @@ def generate_report_page(report):
     if os.path.exists(os.path.join(BUILD_DIR, output_fn)):
         with open(os.path.join(BUILD_DIR, output_fn)) as f:
             existing_page = f.read()
-            m = re.search(r'<meta name="topics" content="(.*)" />\s+<meta name="source-content-hash" content="(.*?)" />', existing_page)
+            m = re.search(r'<meta name="source-content-hash" content="(.*?)" />', existing_page)
             if not m:
                 raise Exception("Generated report file doesn't match pattern.")
-            topics = m.group(1).split(",")
-            existing_hash = m.group(2)
+            existing_hash = m.group(1)
             if existing_hash == current_hash:
-                report["topics"] = [t for t in topic_areas if t["slug"] in topics]
                 return
 
     # For debugging, skip this report if we didn't ask for it.
@@ -274,27 +268,6 @@ def generate_report_page(report):
             # Keep for next iteration & for displaying most recent text.
             most_recent_text = html
 
-    # Assign topic areas.
-    topics = []
-    for topic in topic_areas:
-        for term in topic["terms"]:
-            if term.startswith("*"):
-                # search title only
-                term = term[1:]
-                if term.lower() in report["versions"][0]["title"].lower() or term.lower() in report["versions"][0]["summary"].lower():
-                    topics.append(topic)
-                    break # only add topic once
-            elif most_recent_text and term in most_recent_text:
-                topics.append(topic)
-                break # only add topic once
-            elif term in report["versions"][0]["title"] or term in report["versions"][0]["summary"]:
-                # if no text is available, fall back to title and summary
-                topics.append(topic)
-                break # only add topic once
-        if topic["slug"] == "crs-insights" and report["typeId"] == "INSIGHTS":
-            topics.append(topic)
-    report["topics"] = sorted(topics, key = lambda topic : topic["name"])
-
     # Some reports have summaries that are just the whole report
     # in plain text. Hide those summaries.
     summary = report["versions"][0]["summary"].strip()
@@ -307,11 +280,11 @@ def generate_report_page(report):
         "html": most_recent_text,
         "thumbnail_url": SITE_URL + "/" + get_report_url_path(report, '.png'),
         "show_summary": show_summary,
+        "topics": [topicitem for topicitem in topic_areas.items()
+            if topicitem[0] in report.get("topics", [])],
 
         # cache some information
         "source_content_hash": current_hash,
-        "topics": ",".join([t["slug"] for t in report.get("topics",[])]),
-
     }, output_fn=output_fn)
 
     # Hard link the metadata file into place. Don't save the stuff we have in
@@ -464,8 +437,8 @@ if __name__ == "__main__":
     # Generate topic pages and topic RSS feeds.
     by_topic = index_by_topic(reports)
     for group in tqdm.tqdm(by_topic, desc="topic pages"):
-        generate_static_page("topic.html", group, output_fn="topics/%s.html" % group["topic"]["slug"])
-        create_feed(group["reports"], "New Reports in " + group["topic"]["name"], "topics/%s-rss.xml" % group["topic"]["slug"])
+        generate_static_page("topic.html", group, output_fn="topics/%s.html" % group["slug"])
+        create_feed(group["reports"], "New Reports in " + group["topic"], "topics/%s-rss.xml" % group["slug"])
 
     # Generate main pages.
     print("Static pages...")

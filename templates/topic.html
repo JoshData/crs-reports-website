@@ -1,14 +1,14 @@
 {% extends "master.html" %}
 
-{% block title %}{{topic.name}}{% endblock %}
+{% block title %}{{topic}}{% endblock %}
 
 {% block body %}
 
-<h1>{{topic.name}}</h1>
+<h1>{{topic}}</h1>
 
 <p style="margin: 2em 0">
 We&rsquo;re tracking {{reports|length|intcomma}} Congressional Research Service reports in this topic area.
-<a href="/topics/{{topic.slug}}-rss.xml" title="RSS feed for new and updated reports in this topic area"><img src="/static/rss.png" style="height: 1em; vertical-align: top;" alt="RSS icon"></a>
+<a href="/topics/{{slug}}-rss.xml" title="RSS feed for new and updated reports in this topic area"><img src="/static/rss.png" style="height: 1em; vertical-align: top;" alt="RSS icon"></a>
 </p>
 
 {% for report in reports %}
