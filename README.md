@@ -131,7 +131,7 @@ This section prepares a Linux machine that is ready to fetch the CRS reports fro
 
 On a new Linux machine (instructions here for an AWS Amazon Linux instance):
 
-	sudo yum install python34-pip gcc libxml2-devel libxslt-devel python34-devel unzip poppler-utils
+	sudo yum install python34-pip gcc libxml2-devel libxslt-devel python34-devel unzip poppler-utils libffi-devel openssl-devel
 	sudo pip install s3cmd
 	sudo pip-3.4 install -r requirements.txt
 
