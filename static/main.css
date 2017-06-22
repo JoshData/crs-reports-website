@@ -193,6 +193,13 @@ footer {
 
 /* SEARCH PAGE */
 
+.searchbox-container {
+    margin-bottom: 25px;
+}
+
+h5 {
+    margin-top: 2em;
+}
 .ais-refinement-list--label {
     font-weight: normal;
 }
@@ -203,6 +210,9 @@ footer {
         background-color: #EEE;
         color: #333;
     }
+.ais-show-more {
+    cursor: pointer;
+}
 
 /* COMMON FORMATTING FOR METADATA, SUMMARY */
 

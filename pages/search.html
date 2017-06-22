@@ -5,7 +5,7 @@ Search CRS Reports
 {% endblock %}
 
 {% block head %}
-
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/instantsearch.js@1/dist/instantsearch.min.css" />
 {% endblock %}
 
 {% block body %}
@@ -21,13 +21,14 @@ Search CRS Reports
   </div>
 
   <div class="row">
-    <div class="col-sm-4 col-lg-3" style="margin-top: 1em">
+    <div class="col-sm-4 col-lg-3">
       <h5><i class="fa fa-chevron-right"></i> Topic</h5>
       <div id="topics"></div>
 
       <h5><i class="fa fa-chevron-right"></i> Year Published</h5>
-      <div id="lastPubYear"></div>
+      <div id="lastPubYear" style="margin-right: 1em;"></div>
     </div>
+
     <div class="col-sm-8 col-lg-9" style="margin-top: 1em">
       <div id="stats" class="text-right text-muted"></div>
       <div id="hits"></div>
@@ -37,7 +38,7 @@ Search CRS Reports
 {% endblock %}
 
 {% block scripts %}
-  <script src="https://cdn.jsdelivr.net/npm/instantsearch.js@1/dist/instantsearch.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/instantsearch.js@1/dist/instantsearch-preact.min.js"></script>
   <script>
     var search = instantsearch({
       appId: '{{ALGOLIA_CLIENT_ID}}',
@@ -54,7 +55,10 @@ Search CRS Reports
 
     search.addWidget(
       instantsearch.widgets.stats({
-        container: '#stats'
+        container: '#stats',
+        templates: {
+          body: "<p>{\{nbHits}} documents found</p>"
+        }
       })
     );
 
@@ -100,11 +104,10 @@ Search CRS Reports
     );
 
     search.addWidget(
-      instantsearch.widgets.refinementList({
+      instantsearch.widgets.rangeSlider({
         container: '#lastPubYear',
         attributeName: 'lastPubYear',
-        sortBy: ['name:desc'],
-        limit: 100,
+        tooltips: { format: function(value) { return value; } },
         cssClasses: {
           list: 'nav nav-list',
           count: 'badge pull-right',
@@ -118,7 +121,8 @@ Search CRS Reports
         container: '#topics',
         attributeName: 'topics',
         operator: 'or',
-        limit: 100,
+        limit: 10,
+        showMore: true,
         cssClasses: {
           list: 'nav',
           count: 'badge pull-right'
