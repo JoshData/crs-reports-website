@@ -28,6 +28,12 @@ Every CRS Report
   color: black;
   border-bottom: 2px solid #EEE;
 }
+  @media screen and (max-width: 768px) {
+    #jumbotron {
+        border-top: 1px solid #555;
+        border-bottom: 1px solid #555;
+    }
+  }
   @media screen and (max-width: 1024px) {
     #jumbotron {
       background-image: url('/static/homepage-banner-small.jpg');
@@ -38,6 +44,25 @@ Every CRS Report
 
 {% block body_wide %}
 
+{# this one appears on narrow screens only, there's another one of these for wide screens #}
+<div class="container visible-xs">
+  <form class="search-block" onsubmit="do_search($(this)); return false;">
+    <table width="100%">
+    <tr>
+    <td>
+      <input type="text" class="form-control search-input" autofocus="autofocus" placeholder="Search CRS reports for..." />
+      <div class="our-links">
+        <a href="/topics.html">Browse by Topic</a>
+      </div>
+    </td>
+    <td>
+      <button class="btn btn-primary" onclick="do_search($(this).parents('form'));" style="margin-left: 15px;"><i class="fa fa-search"></i></button>
+    </td>
+    </tr>
+    </table>
+  </form>
+</div>
+
 <div id="jumbotron">
   <div class="container">
     We’re publishing reports by Congress’s think tank, the Congressional Research Service, which provides valuable insight and non-partisan analysis of issues of public debate. These reports are already available to the well-connected &mdash; we’re making them available to everyone for free.
@@ -46,14 +71,15 @@ Every CRS Report
 
 <div class="container">
 
-  <form id="search-block" onsubmit="do_search(); return false;">
+  {# this one appears on wide screens only #}
+  <form class="search-block hidden-xs" onsubmit="do_search($(this)); return false;">
     <table width="100%">
     <tr>
     <td>
-      <input type="text" id="search-input" class="form-control" autofocus="autofocus" placeholder="Search CRS reports for..." />
+      <input type="text" class="form-control search-input" autofocus="autofocus" placeholder="Search CRS reports for..." />
     </td>
     <td>
-      <button class="btn btn-primary" onclick="do_search();" style="margin-left: 15px;"><i class="fa fa-search"></i> Search</button>
+      <button class="btn btn-primary" onclick="do_search($(this).parents('form'));" style="margin-left: 15px;"><i class="fa fa-search"></i> Search</button>
     </td>
     </tr>
     </table>
@@ -98,7 +124,7 @@ Every CRS Report
 <script>
   var client = algoliasearch('{{ALGOLIA_CLIENT_ID}}', '{{ALGOLIA_SEARCH_ACCESS_KEY}}')
   var index = client.initIndex('{{ALGOLIA_INDEX_NAME}}');
-  autocomplete('#search-input', { hint: false }, [
+  autocomplete('.search-input', { hint: false }, [
     {
       source: autocomplete.sources.hits(index, { hitsPerPage: 5 }),
       displayKey: 'title',
@@ -114,8 +140,8 @@ Every CRS Report
   ]).on('autocomplete:selected', function(event, suggestion, dataset) {
     window.location = suggestion.url;
   });
-  function do_search() {
-    window.location = '/search.html?q=' + encodeURIComponent($('#search-input').val());
+  function do_search(form) {
+    window.location = '/search.html?q=' + encodeURIComponent(form.find('.search-input').val());
   }
 </script>
 {% endblock %}

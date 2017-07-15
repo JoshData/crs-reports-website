@@ -109,15 +109,19 @@ footer {
     text-align: center;
 }
 
-#search-block {
+.search-block {
     margin: 4em auto 3em auto;
     max-width: 55em;
 }
-#search-block input {
-    font-size: 22px;
+.search-block input {
     background-size: auto 70% !important;
-    height: 34px;
 }
+    @media screen and (min-width: 768px) {
+        .search-block input {
+            font-size: 22px;
+            height: 34px;
+        }
+    }
     .algolia-autocomplete {
       width: 100%;
     }
@@ -151,9 +155,13 @@ footer {
 .our-links {
     text-align: right;
     margin-top: 1em;
-    margin-right: 140px;
-    font-size: 17px;
 }
+    @media screen and (min-width: 768px) {
+        .our-links {
+            font-size: 17px;
+            margin-right: 85px;
+        }
+    }
 
 #recent-reports h2 {
     font-size: 17px;
