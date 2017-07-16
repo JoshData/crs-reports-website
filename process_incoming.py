@@ -163,8 +163,8 @@ def transform_report_metadata(meta):
                     for f in sorted(mm["FormatList"], key = lambda ff : ff["Order"])
                     ]),
                 ("topics", # there's no indication that the PrdsCliItemId has a clash between the two types (IBCList, CongOpsList)
-                    [{ "source": "IBCList", "id": int(entry["PrdsCliItemId"]), "name": entry["CliTitle"] } for entry in mm["IBCList"]]
-                  + [{ "source": "CongOpsList", "id": int(entry["PrdsCliItemId"]), "name": entry["CliTitle"]} for entry in mm["CongOpsList"]]
+                    [collections.OrderedDict([("source", "IBCList"), ("id", int(entry["PrdsCliItemId"])), ("name", entry["CliTitle"]) ]) for entry in mm["IBCList"]]
+                  + [collections.OrderedDict([("source", "CongOpsList"), ("id", int(entry["PrdsCliItemId"])), ("name", entry["CliTitle"]) ]) for entry in mm["CongOpsList"]]
                     ), # TODO: ChildIBCs?
                 #("fetched", m["_fetched"]), # date we picked up this report version
             ])
