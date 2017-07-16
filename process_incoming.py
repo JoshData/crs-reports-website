@@ -2,6 +2,7 @@
 
 import collections
 import datetime
+import difflib
 import glob
 import os
 import os.path
@@ -11,8 +12,10 @@ import random
 
 import tqdm
 import bleach
+import lxml.etree
 import html5lib
 
+import xml_diff
 
 INCOMING_DIR = 'incoming'
 REPORTS_DIR = 'reports'
@@ -178,21 +181,31 @@ def clean_files(reports, author_names):
     from multiprocessing import Pool
     pool = Pool()
 
-    # For every HTML/PDF file, if we haven't yet processed it, then process it.
-    # We'll skip files that we've processed already. Since the files have their
-    # own SHA1 hash in their file name, we know once we processed it that it's
-    # done. If we change the logic in this module then you should delete the
-    # whole reports/files directory and re-run this.
+    # Iterate through all of the HTML and PDF files, yielding
+    # each file that needs processing.
+    #
+    # For comparison generation, also include in the yielded
+    # tuple the previous version's filename. And process in
+    # forward chronological order so we've cleaned up the
+    # previous version before running a diff between it and
+    # the current version.
     def iter_files():
         for report in reports:
-            for version in report["versions"]:
-                for format in version["formats"]:
-                    yield (report, version, format["filename"])
+            prev_version = { }
+            for version in reversed(report["versions"]):
+                for file in version["formats"]:
+                    yield (
+                        report,
+                        version,
+                        file["filename"],
+                        prev_version.get(file["format"], {}).get("filename")
+                    )
+                    prev_version[file["format"]] = file
 
     all_files = set()
     open_tasks = []
-    process_list = sorted(iter_files(), key=lambda x:x[2])
-    for report, version, fn in tqdm.tqdm(process_list, desc="cleaning HTML/PDFs"):
+    for report, version, fn, prev_fn in tqdm.tqdm(list(iter_files()), desc="cleaning HTML/PDFs"):
+
         # Remmeber that this was a file and also remember any related files we generate from it.
         all_files.add(fn)
         if fn.endswith(".pdf"): all_files.add(fn.replace(".pdf", ".png"))
@@ -200,6 +213,12 @@ def clean_files(reports, author_names):
         # Process the file.
         in_fn = os.path.join(INCOMING_DIR, fn)
         out_fn = os.path.join(REPORTS_DIR, fn)
+
+        # For every HTML/PDF file, if we haven't yet processed it, then process it.
+        # We'll skip files that we've processed already. Since the files have their
+        # own SHA1 hash in their file name, we know once we processed it that it's
+        # done. If we change the logic in this module then you should delete the
+        # whole reports/files directory and re-run this.
         if os.path.exists(in_fn) and not os.path.exists(out_fn):
             if fn.endswith(".html"):
                 ar = pool.apply_async(trap_all, [clean_html, in_fn, out_fn, author_names])
@@ -208,9 +227,20 @@ def clean_files(reports, author_names):
             else:
                 continue
             open_tasks.append(ar)
+
+        # Make a comparison.
+        if fn.endswith(".html") and prev_fn and fn != prev_fn:
+            # (Sometimes there are two versions with the same exact file.)
+            assert fn.startswith("files/")
+            assert prev_fn.startswith("files/")
+            diff_fn = os.path.join(REPORTS_DIR, "diffs", prev_fn[6:].replace(".html", "") + "__" + fn[6:])
+            if not os.path.exists(diff_fn):
+                ar = pool.apply_async(trap_all, [create_diff, os.path.join(REPORTS_DIR, prev_fn), os.path.join(REPORTS_DIR, fn), diff_fn])
+                open_tasks.append(ar)
+
+        # So that the tqdm progress meter works, wait synchronously
+        # every so often.
         if len(open_tasks) > 20:
-            # So that the tqdm progress meter works, wait synchronously
-            # every so often.
             open_tasks.pop(0).wait()
 
     # Wait for the last processes to be done.
@@ -225,8 +255,6 @@ def clean_files(reports, author_names):
 
 
 def clean_html(content_fn, out_fn, author_names):
-    import lxml.etree
-
     # The HTML file contains the entire HTML page from CRS.gov that the report was
     # scraped from. Extract just the report content, dropping the CRS.gov header/footer.
 
@@ -491,6 +519,67 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
                            '-scale-to-x', '600', '-scale-to-y', '-1',
                            out_file, out_file.replace(".pdf", "")])
 
+def create_diff(version1, version2, output_fn):
+    # Generate a HTML diff of two HTML report versions.
+
+    def load_html(fn):
+        # Open file.
+        with open(fn) as f:
+            doc = f.read()
+
+        # Parse DOM. It's a fragment so we need to use parseFragment,
+        # which returns a list which we re-assemble into a node.
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            fragment = html5lib.parseFragment(doc, treebuilder="lxml")
+
+        dom = lxml.etree.Element("div")
+        for node in fragment:
+            dom.append(node)
+
+        ## Remove comments - xml_diff can't handle that.
+        ## They seem to already be stripped by the HTML
+        ## sanitization.
+        # for node in dom.xpath("//comment()"):
+        #    node.getparent().remove(node)
+
+        # Take everything out of the HTML namespace so
+        # that when we serialize at the end there are no
+        # namespaces and it's plain HTML.
+        for node in dom.xpath("//*"):
+            node.tag = node.tag.replace("{http://www.w3.org/1999/xhtml}", "")
+
+        return (doc, dom)
+
+    version1_text, version1_dom = load_html(version1)
+    version2_text, version2_dom = load_html(version2)
+
+    # Compute diff. Each DOM is updated in place with
+    # <ins>/<del> tags.
+    xml_diff.compare(version1_dom, version2_dom, merge=True)
+
+    # Serialize. If we used tostring like normal, we'd get
+    # the extra <div> that we wraped the fragement in. So
+    # serialize what's inside of the div and concatenate.
+    #diff_html = lxml.etree.tostring(version1, encoding=str)
+    diff_html = "".join(
+        lxml.etree.tostring(n, encoding=str, method="html")
+        if isinstance(n, lxml.etree._Element)
+        else str(n)
+        for n in version1_dom.xpath("node()"))
+
+    # Also compute a percent change.
+    percent_change = 1.0 - difflib.SequenceMatcher(None,
+        version1_text,
+        version2_text).quick_ratio()
+
+    # Save.
+    with open(output_fn, "w") as f:
+        f.write(diff_html)
+    with open(output_fn.replace(".html", "-pctchg.txt"), "w") as f:
+        f.write(str(percent_change))
+
 
 # MAIN
 
@@ -498,9 +587,10 @@ if __name__ == "__main__":
     # Make the output directories.
     os.makedirs(os.path.join(REPORTS_DIR, 'reports'), exist_ok=True)
     os.makedirs(os.path.join(REPORTS_DIR, 'files'), exist_ok=True)
+    os.makedirs(os.path.join(REPORTS_DIR, 'diffs'), exist_ok=True)
 
     # Combine and transform the report JSON.
     reports, author_names = write_report_json_files()
 
-    # Clean/sanitize the HTML and PDF files.
+    # Clean/sanitize the HTML and PDF files and generate PNG thumbnails.
     clean_files(reports, author_names)

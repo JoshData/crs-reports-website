@@ -82,9 +82,15 @@
                {% if 'percent_change' in version %}
                <div class="col-md-6 visible-md-block">&nbsp;</div>
                <div class="col-md-6 col-lg-4 report-changes" style="margin-bottom: .5em">
+                   {% if 'diff_link' in version %}
+                     <a href="{{version.diff_link}}">
+                   {% endif %}
                    {% if version.percent_change == 'no-change' %}no change
                    {% elif version.percent_change == 0 %}&lt;1% changed
                    {% else %}{{version.percent_change}}% changed{% endif %}
+                   {% if 'diff_link' in version %}
+                     </a>
+                   {% endif %}
                </div>
                {% endif %}
            </div>

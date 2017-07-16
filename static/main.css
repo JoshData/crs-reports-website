@@ -304,3 +304,38 @@ h5 {
 #report-content {
     margin-top: 1em;
 }
+
+/* Comparison Pages */
+
+/* inline */
+ins {
+    border: 1px solid #00A;
+    background-color: #00A; /* does not print, so also use border */
+    color: white;
+}
+del {
+    border: 1px solid #A00;
+    background-color: #A00; /* does not print, so also use border */
+    color: white;
+}
+
+/* block */
+ins img, ins div, ins p, ins ul, ins ol, ins li, ins table, ins th, ins td, ins hr, ins h1, ins h2, ins h3, ins h4, ins h5, ins h6 {
+    margin: 2px 0;
+    padding: 2px;
+    border: 1px solid #00A;
+    background-color: #00A; /* does not print, so also use border */
+    color: white;
+}
+del img, del div, del p, del ul, del ol, del li, del table, del th, del td, del hr, del h1, del h2, del h3, del h4, del h5, del h6 {
+    margin: 2px 0;
+    padding: 2px;
+    border: 1px solid #A00;
+    background-color: #A00; /* does not print, so also use border */
+    color: white;
+}
+
+/* links */
+ins a, del a {
+    color: white;
+}

@@ -1,0 +1,55 @@
+{% extends "master.html" %}
+
+{% block title %}Changes in {{report.versions[0].title}} from {{version1.date|date}} to {{version2.date|date}}{% endblock %}
+
+{% block head %}
+{# Since the content of this page is very similar to the main report, don't include it in web searches so they don't dupe up the main page content. #}
+<META NAME="ROBOTS" CONTENT="NOINDEX, NOFOLLOW">
+{% endblock %}
+
+{% block body %}
+
+<div id="report-page">
+
+<p>
+  <a href="/reports/{{report.number}}.html">&lt; Back to Current Version</a>
+</p>
+
+<h1>{{report.versions[0].title}}</h1>
+
+<h2>Changes from {{version1.date|date}} to {{version2.date|date}}</h2>
+
+<p>
+  This page shows textual changes in the document between the two versions indicated in the dates above. Textual matter removed in the later version is indicated with <del>red strikethrough</del> and textual matter added in the later version is indicated with <ins>blue</ins>.
+</p>
+
+<hr>
+
+<div class="row">
+    <div class="col-sm-8">
+        {% if html %}
+            <div id="report-content">
+                {{html|safe}}
+            </div>
+        {% endif %}
+    </div> <!-- /col -->
+</div> <!-- /row -->
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+$(function() {
+    // give the tables nice Bootstrap styling
+    $('#report-content table').addClass('table');
+
+    // except a table that follows <h2>Footnotes</h2>
+    $('#report-content h2').each(function() {
+      if ($(this).text() == "Footnotes") {
+        $(this).next('table').removeClass('table');
+      }
+    })
+});
+</script>
+{% endblock %}

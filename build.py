@@ -237,7 +237,7 @@ def generate_report_page(report):
 
     # Regenerating a report page is a bit expensive so we'll skip it if a
     # generated file already exists and is up to date.
-    current_hash = dict_sha1(report, [__file__, "templates/master.html", "templates/report.html"])
+    current_hash = dict_sha1(report, [__file__, "templates/master.html", "templates/report.html", "templates/report-diff.html"])
     if os.path.exists(os.path.join(BUILD_DIR, output_fn)):
         with open(os.path.join(BUILD_DIR, output_fn)) as f:
             existing_page = f.read()
@@ -253,32 +253,51 @@ def generate_report_page(report):
     if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
         return
 
-    # Find the most recent HTML text, compute the differences between the
-    # HTML versions, and find the most recent PDF filename.
-    most_recent_text = None
+    # Find the most recent HTML file, the most recent PDF file,
+    # and load diff info between pairs of sequential versions.
+    most_recent_html = None
     most_recent_pdf_fn = None
     for version in reversed(report["versions"]):
         if 'PDF' in version['formats']:
             most_recent_pdf_fn = version['formats']['PDF']['filename']
         
         if 'HTML' in version['formats']:
-            try:
-                with open(os.path.join(REPORTS_DIR, version['formats']['HTML']['filename'])) as f:
-                    html = f.read()
-            except FileNotFoundError:
-                print("Missing HTML", report["number"], version["date"])
-                html = None
+            fn = version['formats']['HTML']['filename']
 
-            if html and most_recent_text and not os.environ.get("FAST"):
-                # Can do a comparison.
-                if html == most_recent_text:
+            if most_recent_html:
+                if fn == most_recent_html[1]:
                     version["percent_change"] = "no-change"
                 else:
-                    import difflib
-                    version["percent_change"] = int(round(100*(1-difflib.SequenceMatcher(None, most_recent_text, html).quick_ratio())))
+                    assert most_recent_html[1].startswith("files/")
+                    assert fn.startswith("files/")
+                    diff_fn_base = most_recent_html[1][6:].replace(".html", "") + "__" + fn[6:]
+                    diff_fn = os.path.join(REPORTS_DIR, "diffs", diff_fn_base)
+                    if os.path.exists(diff_fn):
+                        diff_pct_fn = diff_fn.replace(".html", "-pctchg.txt")
+                        with open(diff_pct_fn) as f:
+                            pct_chg = float(f.read().strip())
+                        version["percent_change"] = int(round(100*pct_chg))
+                        version["diff_link"] = "/changes/" + diff_fn_base
+
+                        # Generate the diff page.
+                        with open(diff_fn) as f:
+                            diff_text = f.read()
+                        generate_static_page("report-diff.html", {
+                            "report": report,
+                            "html": diff_text,
+                            "version1": most_recent_html[0],
+                            "version2": version,
+                        }, output_fn="changes/" + diff_fn_base)
 
             # Keep for next iteration & for displaying most recent text.
-            most_recent_text = html
+            most_recent_html = (version, fn)
+
+    most_recent_text = None
+    try:
+        with open(os.path.join(REPORTS_DIR, most_recent_html[1])) as f:
+            most_recent_text = f.read()
+    except (FileNotFoundError, TypeError): # TypeError is for subscripting None
+        print("Missing current HTML", report["number"])
 
     # Some reports have summaries that are just the whole report
     # in plain text. Hide those summaries.
