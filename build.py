@@ -266,7 +266,8 @@ def generate_report_page(report):
 
             if most_recent_html:
                 if fn == most_recent_html[1]:
-                    version["percent_change"] = "no-change"
+                    version["hide"] = True
+                    continue
                 else:
                     assert most_recent_html[1].startswith("files/")
                     assert fn.startswith("files/")
