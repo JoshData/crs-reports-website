@@ -8,4 +8,4 @@ feedgen
 pytz
 algoliasearch
 xml_diff
-
+diff_match_patch_python
