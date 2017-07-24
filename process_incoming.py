@@ -61,6 +61,15 @@ def write_report_json_files():
             print("deleting", fn)
             os.unlink(fn)
 
+    # At least one author appears with a first initial in
+    # the metadata but the initial is dropped in the PDF
+    # (RL30240).
+    for name in list(author_names):
+        name_spl = name.split(" ")
+        if len(name_spl) >= 3 and name_spl[0].endswith('.'):
+            rest_of_name = " ".join(name_spl[1:])
+            author_names.add(rest_of_name)
+
     return (reports, author_names)
 
 
