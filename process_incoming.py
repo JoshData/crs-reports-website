@@ -214,6 +214,7 @@ def clean_files(reports, author_names):
     all_files = set()
     open_tasks = []
     for report, version, fn, prev_fn in tqdm.tqdm(list(iter_files()), desc="cleaning HTML/PDFs"):
+        if "ONLY" in os.environ and os.environ["ONLY"] not in fn: continue
 
         # Remmeber that this was a file and also remember any related files we generate from it.
         all_files.add(fn)
@@ -257,10 +258,11 @@ def clean_files(reports, author_names):
     pool.join()
 
     # Delete orphaned files.
-    for fn in glob.glob(os.path.join(REPORTS_DIR, 'files', '*')):
-        if fn[len(REPORTS_DIR)+1:] not in all_files:
-            print("deleting", fn)
-            os.unlink(fn)
+    if "ONLY" not in os.environ:
+        for fn in glob.glob(os.path.join(REPORTS_DIR, 'files', '*')):
+            if fn[len(REPORTS_DIR)+1:] not in all_files:
+                print("deleting", fn)
+                os.unlink(fn)
 
 
 def clean_html(content_fn, out_fn, author_names):
