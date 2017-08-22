@@ -171,6 +171,7 @@ def transform_report_metadata(meta):
                         ("url", f["_"]["url"]), # the URL we fetched the file from
                         ("sha1", f["_"]["sha1"]), # the SHA-1 hash of the file content
                         ("filename", f["_"]["filename"]), # the path where the content is stored in our cache
+                        ("images", f["_"]["images"] if "images" in f["_"] else None), # mapped image paths found in the HTML file (this could be omitted from the public files but we need it in a later step of processing)
                     ])
                     for f in sorted(mm["FormatList"], key = lambda ff : ff["Order"])
                     ]),
@@ -206,14 +207,15 @@ def clean_files(reports, author_names):
                     yield (
                         report,
                         version,
-                        file["filename"],
+                        file,
                         prev_version.get(file["format"], {}).get("filename")
                     )
                     prev_version[file["format"]] = file
 
     all_files = set()
     open_tasks = []
-    for report, version, fn, prev_fn in tqdm.tqdm(list(iter_files()), desc="cleaning HTML/PDFs"):
+    for report, version, file, prev_fn in tqdm.tqdm(list(iter_files()), desc="cleaning HTML/PDFs"):
+        fn = file["filename"]
         if "ONLY" in os.environ and os.environ["ONLY"] not in fn: continue
 
         # Remmeber that this was a file and also remember any related files we generate from it.
@@ -231,7 +233,7 @@ def clean_files(reports, author_names):
         # whole reports/files directory and re-run this.
         if os.path.exists(in_fn) and not os.path.exists(out_fn):
             if fn.endswith(".html"):
-                ar = pool.apply_async(trap_all, [clean_html, in_fn, out_fn, author_names])
+                ar = pool.apply_async(trap_all, [clean_html, in_fn, out_fn, file, author_names])
             elif fn.endswith(".pdf"):
                 ar = pool.apply_async(trap_all, [clean_pdf, in_fn, out_fn, version, author_names])
             else:
@@ -247,6 +249,12 @@ def clean_files(reports, author_names):
             if not os.path.exists(diff_fn):
                 ar = pool.apply_async(trap_all, [create_diff, os.path.join(REPORTS_DIR, prev_fn), os.path.join(REPORTS_DIR, fn), diff_fn])
                 open_tasks.append(ar)
+
+        # Link scraped images into the output folder.
+        if fn.endswith(".html") and file.get("images"):
+            for img in file["images"].values():
+                hard_soft_link(os.path.join(INCOMING_DIR, img), os.path.join(REPORTS_DIR, img))
+                all_files.add(img)
 
         # So that the tqdm progress meter works, wait synchronously
         # every so often.
@@ -265,9 +273,18 @@ def clean_files(reports, author_names):
                 os.unlink(fn)
 
 
-def clean_html(content_fn, out_fn, author_names):
-    # The HTML file contains the entire HTML page from CRS.gov that the report was
-    # scraped from. Extract just the report content, dropping the CRS.gov header/footer.
+def clean_html(content_fn, out_fn, file_metadata, author_names):
+    # Transform the scraped HTML page to the one that we publish:
+    #
+    # * The HTML file contains the entire HTML page from CRS.gov that the report was
+    #   scraped from. Extract just the report content, dropping the CRS.gov header/footer.
+    # * Sanitize the HTML to ensure no unsafe content is injected into our site,
+    #   and clean up the HTML so we can make it look good with CSS.
+    # * Replace image paths with references to our "files/" directory that holds
+    #   a scraped version of the image.
+    # * Rewrite internal crs.gov links to point to the corresponding report on
+    #   everycrsreport.com.
+    # * Scrub author names.
 
     with open(content_fn) as f:
         content = f.read()
@@ -327,6 +344,8 @@ def clean_html(content_fn, out_fn, author_names):
 
         return text
 
+    whitelisted_image_paths = set()
+
     for tag in [content] + content.findall(".//*"):
         # Skip non-element nodes.
         if not isinstance(tag.tag, str): continue
@@ -374,6 +393,16 @@ def clean_html(content_fn, out_fn, author_names):
             for n in tag: # remove all child nodes
                 tag.remove(n)
 
+        # Replace img files with scraped files.
+        if tag.tag == "img" and tag.attrib["src"] in (file_metadata.get("images") or {}):
+            # Get the path to the scraped file.
+            # Make the path absolute because the relative location will be different
+            # for the raw HTML (in the files directory just like the image) and
+            # the published report path (in /reports).
+            path = "/" + file_metadata["images"][tag.attrib["src"]]
+            tag.attrib["src"] = path
+            whitelisted_image_paths.add(tag.attrib["src"])
+
         # Rewrite internal crs.gov links to point to the corresponding report on
         # everycrsreport.com.
         if tag.tag == "a" and "href" in tag.attrib:
@@ -416,7 +445,7 @@ def clean_html(content_fn, out_fn, author_names):
     def image_filter(name, value):
         if name in ("class",):
             return True
-        if name == "src" and (value.startswith("http:") or value.startswith("https:")):
+        if name == "src" and (value.startswith("http:") or value.startswith("https:") or value in whitelisted_image_paths):
             return True
         return False
     content = bleach.clean(
@@ -591,6 +620,21 @@ def create_diff(version1, version2, output_fn):
     with open(output_fn.replace(".html", "-pctchg.txt"), "w") as f:
         f.write(str(percent_change))
 
+def hard_soft_link(fn1, fn2):
+    if os.path.exists(fn2):
+        if os.stat(fn1).st_ino == os.stat(fn2).st_ino:
+            # Files are already hard links.
+            return
+        elif os.islink(fn2) and os.readlink(fn2) == os.path.abspath(fn1):
+            # File is already a symlink.
+            return
+        else:
+            # File links to the wrong place. Replace it.
+            os.unlink(fn2)
+    try:
+        os.link(fn1, fn2)
+    except IOError:
+        os.symlink(os.path.abspath(fn1), fn2)
 
 # MAIN
 
