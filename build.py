@@ -211,7 +211,7 @@ def copy_static_assets():
 
     # "Copy" the assets. Actually just make hardlinks since we're not going to be
     # modifying the build output, and the source files are under version control anyway.
-    shutil.copytree("static", static_dir, copy_function=os.link)
+    shutil.copytree("static", static_dir, copy_function=hard_soft_link)
 
     # Extract the favicon assets.
     subprocess.check_call(["unzip", "-d", BUILD_DIR, "-u", "branding/favicons.zip"])
@@ -331,7 +331,7 @@ def generate_report_page(report):
                 return # files are already hardlinks
             os.unlink(dst) # destination exists and is not a hardlink
         if src:
-            os.link(src, dst)
+            hard_soft_link(src, dst)
     make_link(
         os.path.join(REPORTS_DIR, "reports/%s.json" % report["number"]),
         os.path.join(BUILD_DIR, get_report_url_path(report, '.json')))
@@ -445,6 +445,12 @@ def generate_csv_listing():
         reports_csv_excerpt += line
         if len(reports_csv_excerpt) > 512: break
     return reports_csv_excerpt
+
+def hard_soft_link(fn1, fn2):
+    try:
+        os.link(fn1, fn2)
+    except IOError:
+        os.symlink(os.path.abspath(fn1), fn2)
 
 # MAIN
 
