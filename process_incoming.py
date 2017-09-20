@@ -1,5 +1,23 @@
 #!/usr/bin/env python3
 
+# This script processes the raw (non-public) CRS files,
+# including metadata, PDFs, and HTML, and prepares it
+# for publication:
+#
+# a) The metadata for report versions is scanned and
+#    collated to create a single metadata file per
+#    report, with multiple entries within it for
+#    versions.
+#
+# b) The HTML files are sanitized and scrubbed of
+#    author information. Image files are copied
+#    to the output directory. Diffs of HTML versions
+#    to previous report versions are computed & saved.
+#
+# c) The PDF files are scrubbed of author information,
+#    our back page is appended to each, and a PNG
+#    thumbnail image of the first page is generated.
+
 import collections
 import datetime
 import difflib
@@ -18,6 +36,7 @@ import html5lib
 import xml_diff
 
 INCOMING_DIR = 'incoming'
+UNT_ARCHIVE = 'untl-crs-collection.tar'
 REPORTS_DIR = 'reports'
 
 
@@ -26,28 +45,38 @@ def write_report_json_files():
     with open("withheld-reports.txt") as f:
         withheld_reports = set(line.split("\t")[0] for line in f)
 
-    # Load the incoming report JSON metadata.
-    reports = load_reports_metadata(withheld_reports)
-
-    # Collect a list of author names which we'll use for redaction.
+    # Load the incoming report JSON metadata which is by report-version
+    # and collate by unique report.
+    reports = collections.defaultdict(lambda : [])
     author_names = set()
-    for report in reports:
-        for version in report:
-            for author in version["Authors"]:
-                author_names.add(author["FirstName"]) # has full name
+    load_ecr_reports_metadata(reports, author_names, withheld_reports)
+    load_unt_reports_metadata(reports, author_names)
 
-    # Transform the dicts and write them out to disk.
+    # For each report, sort the report version records in reverse-chronological order, putting
+    # the most recent one first. Sort on the report date and on the retrieved date, since the
+    # cover date is a date (without time) and if there are multiple updates on the same
+    # date we should take the most recent fetch as the newer one.
+    for report in reports.values():
+        report.sort(key = lambda record : (record['date'], record['retrieved']), reverse=True)
+
+    # Sort the reports in reverse chronological order by most recent
+    # report version (based on the first version record, since the
+    # arrays have already been sorted).
+    reports = list(reports.items())
+    reports.sort(key = lambda kv : (kv[1][0]['date'], kv[1][0]['retrieved']), reverse=True)
+
+    # Write the reports out to disk.
     all_files = set()
-    for i, report in enumerate(reports):
+    for i, (report_number, report_versions) in enumerate(reports.items()):
         # Construct a file name for the JSON.
-        out_fn = os.path.join(REPORTS_DIR, "reports", report[0]["ProductNumber"] + ".json")
+        out_fn = os.path.join(REPORTS_DIR, "reports", report_number + ".json")
 
         # Remember it so we can delete orphaned files.
         all_files.add(out_fn)
 
         # Transform and write it out.
         try:
-            reports[i] = transform_report_metadata(report)
+            reports[i] = transform_report_metadata(report_number, report_versions)
         except Exception as e:
             print(out_fn)
             print("\t", e)
@@ -73,7 +102,7 @@ def write_report_json_files():
     return (reports, author_names)
 
 
-def load_reports_metadata(withheld_reports):
+def load_ecr_reports_metadata(reports, author_names, withheld_reports):
     # Load all of the CRS reports metadata into memory. We do this because each report
     # is spread across multiple JSON files, each representing a snapshop of a metadata
     # record at a point in time when we fetched the information. The metadata snapshots
@@ -83,14 +112,11 @@ def load_reports_metadata(withheld_reports):
     # version. So we must scan the whole dataset and put together report version
     # records that are for the same report.
     #
-    # We'll return a list of lists of metadata records.
+    # We'll return a list of lists of metadata records collated by unique report.
 
-    print("Reading report metadata...")
+    print("Reading CRS.gov report metadata...")
 
-    # Collect metadata records by report ID.
-    reports = collections.defaultdict(lambda : [])
-
-    # Look through all of the metadata records on disk and combine by report.
+    # Scan the "incoming" directory for report version metadata...
     for fn in glob.glob(os.path.join(INCOMING_DIR, "documents/*.json")):
         with open(fn) as f:
             try:
@@ -110,81 +136,138 @@ def load_reports_metadata(withheld_reports):
         if doc['ProductNumber'] in withheld_reports:
             continue
 
-        # Validate and normalize the fetch date and CoverDate into an ISO date string.
-        # We need these for chronological sorting but turning them into datetime instances
-        # would break JSON serialization. (TODO: Probably want to strip the time from
-        # CoverDate and treat it as timezoneless, and probably want to add a UTC indication
-        # to _fetched.)
-        doc['_fetched'] = datetime.datetime.strptime(doc['_fetched'], "%Y-%m-%dT%H:%M:%S.%f").isoformat()
-        doc['CoverDate'] = datetime.datetime.strptime(doc['CoverDate'], "%Y-%m-%dT%H:%M:%S").isoformat()
+        # Turn this into our public metadata format.
+        rec = collections.OrderedDict([
+            ("source", "EveryCRSReport.com"),
+            ("id", doc["PrdsProdVerId"]), # report version ID, which changes with each version
 
-        # Store.
-        reports[doc['PrdsProdId']].append(doc)
+            # Validate and normalize the fetch date and CoverDate into an ISO date string.
+            # We need these for chronological sorting but turning them into datetime instances
+            # would break JSON serialization. (TODO: Probably want to strip the time from
+            # CoverDate and treat it as timezoneless, and probably want to add a UTC indication
+            # to _fetched.)
+            ('date', datetime.datetime.strptime(doc['CoverDate'], "%Y-%m-%dT%H:%M:%S").isoformat()),
+            ('retrieved', datetime.datetime.strptime(doc['_fetched'], "%Y-%m-%dT%H:%M:%S.%f").isoformat()),
 
-    # For each report, sort the metadata records in reverse-chronological order, putting
-    # the most recent one first. Sort on the CoverDate and on the _fetched date, since the
-    # cover date is a date (without time) and if there are multiple updates on the same
-    # date we should take the most recent fetch as the newer one.
-    for report in reports.values():
-        report.sort(key = lambda record : (record['CoverDate'], record['_fetched']), reverse=True)
+            ("title", doc["Title"]), # title
+            ("summary", doc.get("Summary", "").strip()) or None, # summary, sometimes not present - set to None if not a non-empty string
 
-    # Sort the reports in reverse chronological order by most recent
-    # publication date (the first metadata record, since the arrays have
-    # already been sorted).
-    reports = list(reports.values())
-    reports.sort(key = lambda records : records[0]['CoverDate'], reverse=True)
+            ("type", doc['ProdTypeDisplayName']),
+            ("typeId", doc['ProdTypeGroupCode']),
+            ("active", doc["StatusFlag"] == "Active"), # not sure
 
-    return reports
+            ("formats", [
+                collections.OrderedDict([
+                    ("format", f["FormatType"]), # "PDF" or "HTML"
+
+                    # these fields we inserted when we scraped the content
+                    ("encoding", f["_"]["encoding"]), # best guess at encoding of HTML content
+                    ("url", f["_"]["url"]), # the URL we fetched the file from
+                    ("sha1", f["_"]["sha1"]), # the SHA-1 hash of the file content
+                    ("filename", f["_"]["filename"]), # the path where the content is stored in our cache
+                    ("images", f["_"]["images"] if "images" in f["_"] else None), # mapped image paths found in the HTML file (this could be omitted from the public files but we need it in a later step of processing)
+                ])
+                for f in sorted(doc["FormatList"], key = lambda ff : ff["Order"])
+                ]),
+            ("topics", # there's no indication that the PrdsCliItemId has a clash between the two types (IBCList, CongOpsList)
+                [collections.OrderedDict([("source", "IBCList"), ("id", int(entry["PrdsCliItemId"])), ("name", entry["CliTitle"]) ]) for entry in doc["IBCList"]]
+              + [collections.OrderedDict([("source", "CongOpsList"), ("id", int(entry["PrdsCliItemId"])), ("name", entry["CliTitle"]) ]) for entry in doc["CongOpsList"]]
+                ), # TODO: ChildIBCs?
+        ])
+
+        # Store by report number.
+        reports[doc['ProductNumber']].append(rec)
+
+        # Collect a list of author names which we'll use for redaction.
+        for author in doc["Authors"]:
+            author_names.add(author["FirstName"]) # has full name
+
+def load_unt_reports_metadata(reports, author_names):
+    # Scan the University of North Texas archive for report metadata...
+    print("Reading UNT report metadata...")
+    import tarfile
+    with tarfile.open(UNT_ARCHIVE) as untarchive:
+        while True:
+            # Get next entry in the tar file.
+            fi = untarchive.next()
+            if fi is None: break
+            if not fi.name.endswith(".xml"): continue
+
+            # Parse its metadata XML file.
+            md = lxml.etree.parse(untarchive.extractfile(fi))
+            def getvalue(tag, qualifier, fallback=False, required=True):
+                node = md.find(tag + "[@qualifier='" + qualifier + "']")
+                if node is None and fallback:
+                    node = md.find(tag + "[@qualifier='']")
+                if node is None:
+                    if not required:
+                        return None
+                    raise ValueError("No %s in: %s" % (tag, lxml.etree.tostring(md)))
+                return node.text
+
+            # Get an identifier for this version.
+            try:
+                report_version_id = getvalue("identifier", "LOCAL-CONT-NO")
+            except:
+                try:
+                    report_version_id = getvalue("identifier", "ark")
+                except:
+                    report_version_id = fi.name
+
+            if getvalue("title", "seriestitle", False, False) == "Legal Sidebar":
+                # Legal Sidebars don't seem to have report numbers / identifiers.
+                continue
+
+            try:
+                report_number = getvalue("identifier", "CRS")
+                rec = collections.OrderedDict([
+                    ("source", "UNT"),
+                    ("id", report_version_id),
+                    ("date", getvalue("date", "creation")),
+                    ("retrieved", getvalue("meta", "metadataCreationDate")), # not ISO format
+                    ("title", getvalue("title", "officialtitle", True)),
+                    ("summary", getvalue("description", "content", False, False)),
+                    ("type", "CRS Report"), # title[qualifier=seriestitle] is sometimes "Legal Sidebar" but other values are weird
+                    ("typeId", "REPORT"),
+                    ("formats", [
+                        collections.OrderedDict([
+                            ("format", "PDF"),
+                            ("filename", fi.name),
+                        ])
+                        ]),
+                    ("topics", # there's no indication that the PrdsCliItemId has a clash between the two types (IBCList, CongOpsList)
+                        [collections.OrderedDict([
+                            ("source", subject.get("qualifier")),
+                            ("id", subject.text),
+                            ("name", subject.text)
+                            ])
+                            for subject in md.findall("subject")]
+                        ),            
+                ])
+
+                # Store by report number.
+                reports[report_number].append(rec)
+
+            except ValueError as e:
+                print(report_version_id, e)
+                #print(lxml.etree.tostring(md).decode("ascii"))
 
 
-def transform_report_metadata(meta):
-    # Converts the metadata from the JSON format we fetched directly from CRS.gov hidden API
-    # into our public metadata format. This way, we're not committed to their schema.
+def transform_report_metadata(report_number, report_versions):
+    # Construct the data structure for a report, given a list of report versions.
     #
-    # meta is a *list* of metadata records, newest first, for the same report.
-    # The list gives us a change history of metadata, including when a document
-    # is modified.
-    #
-    # The return value is an collections.OrderedDict so that our output maintains the fields
+    # The return value is an OrderedDict so that our output maintains the fields
     # in a consistent order.
-
-    m = meta[0]
-
+    m = report_versions[0]
     return collections.OrderedDict([
-        ("id", m["PrdsProdId"]), # report ID, which is persistent across CRS updates to a report
-        ("type", m['ProdTypeDisplayName']),
-        ("typeId", m['ProdTypeGroupCode']),
-        ("number", m["ProductNumber"]), # report display number, e.g. 96-123
-        ("active", m["StatusFlag"] == "Active"), # not sure
-        ("versions", [
-            collections.OrderedDict([
-                ("id", mm["PrdsProdVerId"]), # report version ID, which changes with each version
-                ("date", mm["CoverDate"]), # publication/cover date
-                ("title", mm["Title"]), # title
-                ("summary", mm.get("Summary", "").strip()) or None, # summary, sometimes not present - set to None if not a non-empty string
-                ("formats", [
-                    collections.OrderedDict([
-                        ("format", f["FormatType"]), # "PDF" or "HTML"
-
-                        # these fields we inserted when we scraped the content
-                        ("encoding", f["_"]["encoding"]), # best guess at encoding of HTML content
-                        ("url", f["_"]["url"]), # the URL we fetched the file from
-                        ("sha1", f["_"]["sha1"]), # the SHA-1 hash of the file content
-                        ("filename", f["_"]["filename"]), # the path where the content is stored in our cache
-                        ("images", f["_"]["images"] if "images" in f["_"] else None), # mapped image paths found in the HTML file (this could be omitted from the public files but we need it in a later step of processing)
-                    ])
-                    for f in sorted(mm["FormatList"], key = lambda ff : ff["Order"])
-                    ]),
-                ("topics", # there's no indication that the PrdsCliItemId has a clash between the two types (IBCList, CongOpsList)
-                    [collections.OrderedDict([("source", "IBCList"), ("id", int(entry["PrdsCliItemId"])), ("name", entry["CliTitle"]) ]) for entry in mm["IBCList"]]
-                  + [collections.OrderedDict([("source", "CongOpsList"), ("id", int(entry["PrdsCliItemId"])), ("name", entry["CliTitle"]) ]) for entry in mm["CongOpsList"]]
-                    ), # TODO: ChildIBCs?
-                #("fetched", m["_fetched"]), # date we picked up this report version
-            ])
-            for mm in meta
-        ]),
+        ("id", report_number),
+        ("type", m['type']),
+        ("typeId", m['typeId']),
+        ("number", report_number),
+        ("active", m["active"]),
+        ("source", ", ".join(set(mm["source"] for mm in report_versions))),
+        ("versions", report_versions),
     ])
-
 
 def clean_files(reports, author_names):
     # Use a multiprocessing pool to divide the load across processors.
