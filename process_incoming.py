@@ -67,7 +67,7 @@ def write_report_json_files():
 
     # Write the reports out to disk.
     all_files = set()
-    for i, (report_number, report_versions) in enumerate(reports.items()):
+    for i, (report_number, report_versions) in enumerate(reports):
         # Construct a file name for the JSON.
         out_fn = os.path.join(REPORTS_DIR, "reports", report_number + ".json")
 
@@ -184,6 +184,7 @@ def load_ecr_reports_metadata(reports, author_names, withheld_reports):
 
 def load_unt_reports_metadata(reports, author_names):
     # Scan the University of North Texas archive for report metadata...
+    if not os.path.exists(UNT_ARCHIVE): return
     print("Reading UNT report metadata...")
     import tarfile
     with tarfile.open(UNT_ARCHIVE) as untarchive:
