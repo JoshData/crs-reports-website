@@ -270,6 +270,22 @@ def transform_report_metadata(report_number, report_versions):
         ("versions", report_versions),
     ])
 
+
+import boto3
+with open("credentials.txt") as f:
+    CREDENTIALS = dict(line.strip().split("=") for line in f if line.strip() != "")
+s3 = boto3.client('s3', aws_access_key_id=CREDENTIALS['AWS_ACCESS_KEY_ID'], aws_secret_access_key=CREDENTIALS['AWS_SECRET_ACCESS_KEY'])
+def read_incoming_file(fn):
+    class WithBlockWrapper:
+        def __init__(self, streamingbody): self.streamingbody = streamingbody
+        def __enter__(self): return self
+        def __exit__(self, *args): return
+        def read(self): return self.streamingbody.read()
+    resource = s3.get_object(Bucket=CREDENTIALS['AWS_INCOMING_S3_BUCKET'],
+                         Key=fn)['Body'] # => StreamingBody object
+    return WithBlockWrapper(resource)
+
+
 def clean_files(reports, author_names):
     # Use a multiprocessing pool to divide the load across processors.
     from multiprocessing import Pool
@@ -307,7 +323,6 @@ def clean_files(reports, author_names):
         if fn.endswith(".pdf"): all_files.add(fn.replace(".pdf", ".png"))
         
         # Process the file.
-        in_fn = os.path.join(INCOMING_DIR, fn)
         out_fn = os.path.join(REPORTS_DIR, fn)
 
         # For every HTML/PDF file, if we haven't yet processed it, then process it.
@@ -315,11 +330,11 @@ def clean_files(reports, author_names):
         # own SHA1 hash in their file name, we know once we processed it that it's
         # done. If we change the logic in this module then you should delete the
         # whole reports/files directory and re-run this.
-        if os.path.exists(in_fn) and not os.path.exists(out_fn):
+        if not os.path.exists(out_fn):
             if fn.endswith(".html"):
-                ar = pool.apply_async(trap_all, [clean_html, in_fn, out_fn, file, author_names])
+                ar = pool.apply_async(trap_all, [clean_html, fn, out_fn, file, author_names])
             elif fn.endswith(".pdf"):
-                ar = pool.apply_async(trap_all, [clean_pdf, in_fn, out_fn, version, author_names])
+                ar = pool.apply_async(trap_all, [clean_pdf, fn, out_fn, version, author_names])
             else:
                 continue
             open_tasks.append(ar)
@@ -334,10 +349,14 @@ def clean_files(reports, author_names):
                 ar = pool.apply_async(trap_all, [create_diff, os.path.join(REPORTS_DIR, prev_fn), os.path.join(REPORTS_DIR, fn), diff_fn])
                 open_tasks.append(ar)
 
-        # Link scraped images into the output folder.
+        # Put scraped images into the output folder.
         if fn.endswith(".html") and file.get("images"):
             for img in file["images"].values():
-                hard_soft_link(os.path.join(INCOMING_DIR, img), os.path.join(REPORTS_DIR, img))
+                img_out_fn = os.path.join(REPORTS_DIR, img)
+                #hard_soft_link(os.path.join(INCOMING_DIR, img), img_out_fn)
+                with read_incoming_file(img) as f:
+                    with open(img_out_fn, "wb") as f1:
+                        f1.write(f.read())
                 all_files.add(img)
 
         # So that the tqdm progress meter works, wait synchronously
@@ -370,12 +389,12 @@ def clean_html(content_fn, out_fn, file_metadata, author_names):
     #   everycrsreport.com.
     # * Scrub author names.
 
-    with open(content_fn) as f:
+    with read_incoming_file(content_fn) as f:
         content = f.read()
 
     # Some reports are invalid HTML with a whole doctype and html node inside
     # the main report container element. See if this is one of those documents.
-    extract_blockquote = ('<div class="Report"><!DOCTYPE' in content)
+    extract_blockquote = (b'<div class="Report"><!DOCTYPE' in content)
 
     # Parse the page as HTML5. html5lib gives some warnings about malformed
     # content that we don't care about -- hide warnings.
@@ -602,9 +621,14 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
     # Avoid inserting ?'s and spaces.
     redactor_options.content_replacement_glyphs = ['#', '*', '/', '-']
 
-    # Run qpdf to decompress.
+    # Save the incoming PDF to a temporary file.
+    with read_incoming_file(in_file) as f:
+        with tempfile.NamedTemporaryFile() as f1:
+            f1.write(f.read())
+            f1.flush()
 
-    data = subprocess.check_output(['qpdf', '--qdf', '--stream-data=uncompress', in_file, "-"])
+            # Run qpdf to decompress (to standard output, which we capture).
+            data = subprocess.check_output(['qpdf', '--qdf', '--stream-data=uncompress', f1.name, "-"])
 
     with tempfile.NamedTemporaryFile() as f1:
         with tempfile.NamedTemporaryFile() as f2:
