@@ -261,10 +261,10 @@ h5 {
     margin-bottom: 30px;
 }
 
-#download-link {
+.download-link {
     margin-bottom: 2em;
 }
-    #download-link a {
+    .download-link a {
         width: 100%;
         font-size: 120%;
     }

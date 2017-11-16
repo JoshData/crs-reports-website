@@ -306,6 +306,15 @@ def generate_report_page(report):
     show_summary = not most_recent_text \
         or (len(summary) > 10) and (len(summary) < .25*len(most_recent_text))
 
+    # Is there an epub?
+    epub_fn = os.path.join(REPORTS_DIR, "epubs", report["number"] + ".epub")
+    has_epub = False
+    if os.path.exists(epub_fn):
+        make_link(
+            epub_fn,
+            os.path.join(BUILD_DIR, get_report_url_path(report, '.epub')))
+        has_epub = True
+
     # Generate the report HTML page.
     generate_static_page("report.html", {
         "report": report,
@@ -314,6 +323,7 @@ def generate_report_page(report):
         "show_summary": show_summary,
         "topics": [topicitem for topicitem in topic_areas.items()
             if topicitem[0] in report.get("topics", [])],
+        "epub_url": "/" + get_report_url_path(report, '.epub') if has_epub else None,
 
         # cache some information
         "source_content_hash": current_hash,

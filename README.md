@@ -145,6 +145,13 @@ Get the PDF redaction script, install its dependencies, and install QPDF, which 
 	tar -zxf qpdf-6.0.0.tar.gz
 	(cd qpdf-6.0.0/ && ./configure && make && sudo make install)
 
+Get pandoc from https://pandoc.org/installing.html#linux.
+
+	wget https://github.com/jgm/pandoc/releases/download/2.0.2/pandoc-2.0.2-linux.tar.gz
+	tar -zxf pandoc-2.0.2-linux.tar.gz
+	sudo mv pandoc-2.0.2/bin/pandoc /usr/local/bin/
+	rm -rf pandoc-2.0.2*
+
 Create a new file named `credentials.txt` and put in it the AWS IAM user's access keys that have access to 1) the private S3 bucket holding the CRS reports archive and 2) the public S3 bucket holding the website content. Also set the names of the S3 buckets. And add the Algolia account information.
 
 	AWS_ACCESS_KEY_ID=...
