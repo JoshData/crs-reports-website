@@ -270,22 +270,6 @@ def transform_report_metadata(report_number, report_versions):
         ("versions", report_versions),
     ])
 
-
-import boto3
-with open("credentials.txt") as f:
-    CREDENTIALS = dict(line.strip().split("=") for line in f if line.strip() != "")
-s3 = boto3.client('s3', aws_access_key_id=CREDENTIALS['AWS_ACCESS_KEY_ID'], aws_secret_access_key=CREDENTIALS['AWS_SECRET_ACCESS_KEY'])
-def read_incoming_file(fn):
-    class WithBlockWrapper:
-        def __init__(self, streamingbody): self.streamingbody = streamingbody
-        def __enter__(self): return self
-        def __exit__(self, *args): return
-        def read(self): return self.streamingbody.read()
-    resource = s3.get_object(Bucket=CREDENTIALS['AWS_INCOMING_S3_BUCKET'],
-                         Key=fn)['Body'] # => StreamingBody object
-    return WithBlockWrapper(resource)
-
-
 def clean_files(reports, author_names):
     # Use a multiprocessing pool to divide the load across processors.
     from multiprocessing import Pool
@@ -323,6 +307,7 @@ def clean_files(reports, author_names):
         if fn.endswith(".pdf"): all_files.add(fn.replace(".pdf", ".png"))
         
         # Process the file.
+        in_fn = os.path.join(INCOMING_DIR, fn)
         out_fn = os.path.join(REPORTS_DIR, fn)
 
         # For every HTML/PDF file, if we haven't yet processed it, then process it.
@@ -330,11 +315,11 @@ def clean_files(reports, author_names):
         # own SHA1 hash in their file name, we know once we processed it that it's
         # done. If we change the logic in this module then you should delete the
         # whole reports/files directory and re-run this.
-        if not os.path.exists(out_fn):
+        if os.path.exists(in_fn) and not os.path.exists(out_fn):
             if fn.endswith(".html"):
-                ar = pool.apply_async(trap_all, [clean_html, fn, out_fn, file, author_names])
+                ar = pool.apply_async(trap_all, [clean_html, in_fn, out_fn, file, author_names])
             elif fn.endswith(".pdf"):
-                ar = pool.apply_async(trap_all, [clean_pdf, fn, out_fn, version, author_names])
+                ar = pool.apply_async(trap_all, [clean_pdf, in_fn, out_fn, version, author_names])
             else:
                 continue
             open_tasks.append(ar)
@@ -349,14 +334,10 @@ def clean_files(reports, author_names):
                 ar = pool.apply_async(trap_all, [create_diff, os.path.join(REPORTS_DIR, prev_fn), os.path.join(REPORTS_DIR, fn), diff_fn])
                 open_tasks.append(ar)
 
-        # Put scraped images into the output folder.
+        # Link scraped images into the output folder.
         if fn.endswith(".html") and file.get("images"):
             for img in file["images"].values():
-                img_out_fn = os.path.join(REPORTS_DIR, img)
-                #hard_soft_link(os.path.join(INCOMING_DIR, img), img_out_fn)
-                with read_incoming_file(img) as f:
-                    with open(img_out_fn, "wb") as f1:
-                        f1.write(f.read())
+                make_link(os.path.join(INCOMING_DIR, img), os.path.join(REPORTS_DIR, img))
                 all_files.add(img)
 
         # So that the tqdm progress meter works, wait synchronously
@@ -389,7 +370,7 @@ def clean_html(content_fn, out_fn, file_metadata, author_names):
     #   everycrsreport.com.
     # * Scrub author names.
 
-    with read_incoming_file(content_fn) as f:
+    with open(content_fn, "rb") as f:
         content = f.read()
 
     # Some reports are invalid HTML with a whole doctype and html node inside
@@ -621,14 +602,9 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
     # Avoid inserting ?'s and spaces.
     redactor_options.content_replacement_glyphs = ['#', '*', '/', '-']
 
-    # Save the incoming PDF to a temporary file.
-    with read_incoming_file(in_file) as f:
-        with tempfile.NamedTemporaryFile() as f1:
-            f1.write(f.read())
-            f1.flush()
+    # Run qpdf to decompress.
 
-            # Run qpdf to decompress (to standard output, which we capture).
-            data = subprocess.check_output(['qpdf', '--qdf', '--stream-data=uncompress', f1.name, "-"])
+    data = subprocess.check_output(['qpdf', '--qdf', '--stream-data=uncompress', in_file, "-"])
 
     with tempfile.NamedTemporaryFile() as f1:
         with tempfile.NamedTemporaryFile() as f2:
@@ -728,21 +704,20 @@ def create_diff(version1, version2, output_fn):
     with open(output_fn.replace(".html", "-pctchg.txt"), "w") as f:
         f.write(str(percent_change))
 
-def hard_soft_link(fn1, fn2):
+def make_link(fn1, fn2):
     if os.path.exists(fn2):
         if os.stat(fn1).st_ino == os.stat(fn2).st_ino:
             # Files are already hard links.
             return
-        elif os.islink(fn2) and os.readlink(fn2) == os.path.abspath(fn1):
-            # File is already a symlink.
-            return
+        #elif os.islink(fn2) and os.readlink(fn2) == os.path.abspath(fn1):
+        #    # File is already a symlink to the right place.
+        #    return
         else:
             # File links to the wrong place. Replace it.
             os.unlink(fn2)
-    try:
-        os.link(fn1, fn2)
-    except IOError:
-        os.symlink(os.path.abspath(fn1), fn2)
+    os.link(fn1, fn2)
+    # if crossing file-system boundaries:
+    #os.symlink(os.path.abspath(fn1), fn2)
 
 # MAIN
 
