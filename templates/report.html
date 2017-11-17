@@ -56,13 +56,11 @@
 
     <div class="col-sm-4">
     <div id="sidebar-metadata">
-        {% for format in report.versions[0].formats %}
-             {% if format.format == "PDF" %}
+        {% if "PDF" in report.versions[0].formats %}
                  <div class="download-link">
-                     <a href="/{{format.filename}}" class="btn btn-success">Download {{format.format}}</a>
+                     <a href="/{{report.versions[0].formats.PDF.filename}}" class="btn btn-success">Download PDF</a>
                  </div>
-             {% endif %}
-        {% endfor %}
+        {% endif %}
         {% if epub_url %}
            <div class="download-link">
                <a href="{{epub_url}}" class="btn btn-success">Download EPUB</a>
