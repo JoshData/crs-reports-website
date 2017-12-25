@@ -320,12 +320,6 @@ def generate_report_page(report):
     show_summary = not most_recent_text \
         or (len(summary) > 10) and (len(summary) < .25*len(most_recent_text))
 
-    # If there is no summary and no text HTML but there is a PDF, convert the PDF
-    # to text.
-    if not summary and not most_recent_text and most_recent_pdf_fn:
-        most_recent_text = subprocess.check_output(["pdftotext", os.path.join(REPORTS_DIR, most_recent_pdf_fn), "-"]).decode("utf8")
-        most_recent_text = "<div style='white-space: pre; word-break: break-all; word-wrap: break-word;'>{}</div>".format(html.escape(most_recent_text))
-
     # Is there an epub?
     epub_fn = os.path.join(REPORTS_DIR, "epubs", report["number"] + ".epub")
     has_epub = False

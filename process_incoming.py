@@ -24,12 +24,14 @@ import collections
 import datetime
 import glob
 import hashlib
+import html
 import os
 import os.path
 import json
 import re
 import random
 import shelve
+import subprocess
 
 import tqdm
 import bleach
@@ -53,6 +55,9 @@ def write_report_json_files():
     author_names = set()
     load_ecr_reports_metadata(reports, author_names, withheld_reports)
     load_unt_reports_metadata(reports, author_names)
+
+    # For any report with a PDF but no HTML, convert the PDF to HTML via pdftotext.
+    add_missing_html_formats(reports)
 
     # For each report, sort the report version records in reverse-chronological order, putting
     # the most recent one first. Sort on the report date and on the retrieved date, since the
@@ -350,6 +355,30 @@ def load_unt_reports_metadata(reports, author_names):
                     f.write(pdf_content)
 
         print(num_new_reports, "new reports from UNT,", num_new_versions, "new versions of existing reports")
+
+
+def add_missing_html_formats(reports):
+    for versions in tqdm.tqdm(reports.values(), desc="pdftotext"):
+        for version in versions:
+            # What formats are available for this version?
+            formats = { format["format"]: format["filename"] for format in version["formats"] }
+            if "PDF" in formats and "HTML" not in formats:
+                html_fn = formats["PDF"].replace(".pdf", ".html")
+
+                # Convert, unless we have it already from the last run of this script.
+                if not os.path.exists(os.path.join(REPORTS_DIR, html_fn)):
+                    html_fmt = subprocess.check_output(["pdftotext", os.path.join(REPORTS_DIR, formats["PDF"]), "-"]).decode("utf8")
+                    html_fmt = "<div style='white-space: pre; word-break: break-all; word-wrap: break-word;'>{}</div>".format(html.escape(html_fmt))
+                    with open(os.path.join(REPORTS_DIR, html_fn), "w") as f:
+                        f.write(html_fmt)
+
+                # Add to metadata.
+                version["formats"].append(collections.OrderedDict([
+                    ("format", "HTML"),
+                    ("filename", html_fn),
+                ]))
+
+
 
 def transform_report_metadata(report_number, report_versions):
     # Construct the data structure for a report, given a list of report versions.
