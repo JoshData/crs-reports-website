@@ -124,7 +124,7 @@ def load_ecr_reports_metadata(reports, author_names, withheld_reports):
         # Skip document types that we have access to but do not want to
         # expose publicly.
         if doc['ProdTypeGroupCode'] not in ("REPORTS", "INSIGHTS"):
-            if doc['ProdTypeGroupCode'] not in ("BLOG",):
+            if doc['ProdTypeGroupCode'] not in ("BLOG","SIDEBAR"):
                 print("Saw unrecognized ProdTypeGroupCode:", doc['ProdTypeGroupCode'])
             continue
 
@@ -150,7 +150,7 @@ def load_ecr_reports_metadata(reports, author_names, withheld_reports):
 
             ("type", doc['ProdTypeDisplayName']),
             ("typeId", doc['ProdTypeGroupCode']),
-            ("active", doc["StatusFlag"] == "Active"), # not sure
+            ("active", doc["StatusFlag"] == "Active"), # "Active" or "Archived", not sure if it's meaningful
 
             ("formats", [
                 collections.OrderedDict([
