@@ -1,7 +1,7 @@
 jinja2
 commonmark==0.7.2
-html5lib==0.9999999
-bleach
+html5lib
+bleach>2.0
 lxml
 tqdm
 feedgen

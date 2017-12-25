@@ -520,13 +520,13 @@ def clean_html(content_fn, out_fn, file_metadata, author_names):
 
     # Guard against unsafe content.
     import bleach
-    def link_filter(name, value):
+    def link_filter(tag, name, value):
         if name in ("name", "class"):
             return True # "name" is for link targets
         if name == "href" and (value.startswith("http:") or value.startswith("https:") or value.startswith("#")):
             return True
         return False
-    def image_filter(name, value):
+    def image_filter(tag, name, value):
         if name in ("class",):
             return True
         if name == "src" and (value.startswith("http:") or value.startswith("https:") or value in whitelisted_image_paths):
