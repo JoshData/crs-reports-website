@@ -110,11 +110,11 @@
        <div class="panel-heading">Metadata</div>
        <div class="panel-body">
            {# display the topics of the most recent version #}
-           {% if report.topics|length > 0 %}
+           {% if topics|length > 0 %}
            <div id="topics">
                <p class="heading">Topic areas</p>
-               {% for topic in report.topics %}
-                  <p><a href="/topics/{{topic.slug}}.html">{{topic.name}}</a></p>
+               {% for label, topic in topics %}
+                  <p><a href="/topics/{{topic.slug}}.html">{{label}}</a></p>
                {% endfor %}
            </div>
            <hr>
