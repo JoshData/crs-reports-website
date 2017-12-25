@@ -11,8 +11,7 @@
 #
 # b) The HTML files are sanitized and scrubbed of
 #    author information. Image files are copied
-#    to the output directory. Diffs of HTML versions
-#    to previous report versions are computed & saved.
+#    to the output directory.
 #
 # c) The PDF files are scrubbed of author information,
 #    our back page is appended to each, and a PNG
@@ -20,7 +19,6 @@
 
 import collections
 import datetime
-import difflib
 import glob
 import os
 import os.path
@@ -32,8 +30,6 @@ import tqdm
 import bleach
 import lxml.etree
 import html5lib
-
-import xml_diff
 
 INCOMING_DIR = 'incoming'
 UNT_ARCHIVE = 'untl-crs-collection.tar'
@@ -277,28 +273,19 @@ def clean_files(reports, author_names):
 
     # Iterate through all of the HTML and PDF files, yielding
     # each file that needs processing.
-    #
-    # For comparison generation, also include in the yielded
-    # tuple the previous version's filename. And process in
-    # forward chronological order so we've cleaned up the
-    # previous version before running a diff between it and
-    # the current version.
     def iter_files():
         for report in reports:
-            prev_version = { }
             for version in reversed(report["versions"]):
                 for file in version["formats"]:
                     yield (
                         report,
                         version,
                         file,
-                        prev_version.get(file["format"], {}).get("filename")
                     )
-                    prev_version[file["format"]] = file
 
     all_files = set()
     open_tasks = []
-    for report, version, file, prev_fn in tqdm.tqdm(list(iter_files()), desc="cleaning HTML/PDFs"):
+    for report, version, file in tqdm.tqdm(list(iter_files()), desc="cleaning HTML/PDFs"):
         fn = file["filename"]
         if "ONLY" in os.environ and os.environ["ONLY"] not in fn: continue
 
@@ -323,16 +310,6 @@ def clean_files(reports, author_names):
             else:
                 continue
             open_tasks.append(ar)
-
-        # Make a comparison.
-        if fn.endswith(".html") and prev_fn and fn != prev_fn:
-            # (Sometimes there are two versions with the same exact file.)
-            assert fn.startswith("files/")
-            assert prev_fn.startswith("files/")
-            diff_fn = os.path.join(REPORTS_DIR, "diffs", prev_fn[6:].replace(".html", "") + "__" + fn[6:])
-            if not os.path.exists(diff_fn):
-                ar = pool.apply_async(trap_all, [create_diff, os.path.join(REPORTS_DIR, prev_fn), os.path.join(REPORTS_DIR, fn), diff_fn])
-                open_tasks.append(ar)
 
         # Link scraped images into the output folder.
         if fn.endswith(".html") and file.get("images"):
@@ -642,67 +619,6 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
     subprocess.check_call(['pdftoppm', '-png', '-singlefile',
                            '-scale-to-x', '600', '-scale-to-y', '-1',
                            out_file, out_file.replace(".pdf", "")])
-
-def create_diff(version1, version2, output_fn):
-    # Generate a HTML diff of two HTML report versions.
-
-    def load_html(fn):
-        # Open file.
-        with open(fn) as f:
-            doc = f.read()
-
-        # Parse DOM. It's a fragment so we need to use parseFragment,
-        # which returns a list which we re-assemble into a node.
-        import warnings
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            fragment = html5lib.parseFragment(doc, treebuilder="lxml")
-
-        dom = lxml.etree.Element("div")
-        for node in fragment:
-            dom.append(node)
-
-        ## Remove comments - xml_diff can't handle that.
-        ## They seem to already be stripped by the HTML
-        ## sanitization.
-        # for node in dom.xpath("//comment()"):
-        #    node.getparent().remove(node)
-
-        # Take everything out of the HTML namespace so
-        # that when we serialize at the end there are no
-        # namespaces and it's plain HTML.
-        for node in dom.xpath("//*"):
-            node.tag = node.tag.replace("{http://www.w3.org/1999/xhtml}", "")
-
-        return (doc, dom)
-
-    version1_text, version1_dom = load_html(version1)
-    version2_text, version2_dom = load_html(version2)
-
-    # Compute diff. Each DOM is updated in place with
-    # <ins>/<del> tags.
-    xml_diff.compare(version1_dom, version2_dom, merge=True)
-
-    # Serialize. If we used tostring like normal, we'd get
-    # the extra <div> that we wraped the fragement in. So
-    # serialize what's inside of the div and concatenate.
-    #diff_html = lxml.etree.tostring(version1, encoding=str)
-    diff_html = "".join(
-        lxml.etree.tostring(n, encoding=str, method="html")
-        if isinstance(n, lxml.etree._Element)
-        else str(n)
-        for n in version1_dom.xpath("node()"))
-
-    # Also compute a percent change.
-    percent_change = 1.0 - difflib.SequenceMatcher(None,
-        version1_text,
-        version2_text).quick_ratio()
-
-    # Save.
-    with open(output_fn, "w") as f:
-        f.write(diff_html)
-    with open(output_fn.replace(".html", "-pctchg.txt"), "w") as f:
-        f.write(str(percent_change))
 
 def make_link(fn1, fn2):
     if os.path.exists(fn2):
