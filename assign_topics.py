@@ -71,13 +71,13 @@ def assign_topics_to(reportfn, topic_areas):
             if term.startswith("*"):
                 # search title only
                 term = term[1:] # strip asterisk
-                if term.lower() in report["versions"][0]["title"].lower() or term.lower() in report["versions"][0]["summary"].lower():
+                if term.lower() in report["versions"][0]["title"].lower() or term.lower() in (report["versions"][0].get("summary") or "").lower():
                     topics.append(topic)
                     break # only add topic once
             elif most_recent_text and term in most_recent_text:
                 topics.append(topic)
                 break # only add topic once
-            elif term in report["versions"][0]["title"] or term in report["versions"][0]["summary"]:
+            elif term in report["versions"][0]["title"] or term in (report["versions"][0].get("summary") or ""):
                 # if no text is available, fall back to title and summary
                 topics.append(topic)
                 break # only add topic once

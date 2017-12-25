@@ -5,7 +5,9 @@
 {% block head %}
 <!-- opengraph & twitter cards -->
 <meta property="og:title" content="{{report.versions[0].title}}" />
+{% if report.versions[0].summary %}
 <meta property="og:description" content="{{report.versions[0].summary|truncate(140)}}" />
+{% endif %}
 <meta property="og:image" content="{{thumbnail_url}}" />
 <meta name="twitter:card" content="summary" />
 
@@ -22,7 +24,9 @@
    "@type": "Organization",
    "name": "Congressional Research Service"
   },
+  {% if report.versions[0].summary %}
   "description": {{report.versions[0].summary|truncate(140)|json}},
+  {% endif %}
   "reportNumber": {{report.number|json}}
 }
 </script>
@@ -45,7 +49,7 @@
 
 <div class="row">
     <div class="col-sm-8">
-      {% if show_summary %}
+      {% if show_summary and report.versions[0].summary %}
           <div class="report-summary">{{report.versions[0].summary|format_summary|safe}}</div>
       {% elif html %}
         <div id="report-content">
@@ -74,18 +78,16 @@
            {% for version in report.versions %}
            {% if not version.hide %}
            <div class="row">
-               <div class="col-md-6 col-lg-4 report-version-date">{{version.date|date_short}}</div>
+               <div class="col-md-6 col-lg-5 report-version-date">{{version.date|date_short}}</div>
                <div class="col-md-6 col-lg-4 report-formats">
-                   {% for format in ["PDF", "HTML"] %}
-                     {% if format in version.formats %}
-                       <a href="/{{version.formats[format].filename}}">{{format}}</a>
+                   {% for format, file in version.formats|dictsort %}
+                       <a href="/{{file.filename}}">{{format}}</a>
                        {% if not loop.last %} &middot; {% endif %}
-                     {% endif %}
                    {% endfor %}
                </div>
                {% if 'percent_change' in version %}
                <div class="col-md-6 visible-md-block">&nbsp;</div>
-               <div class="col-md-6 col-lg-4 report-changes" style="margin-bottom: .5em">
+               <div class="col-md-6 col-lg-3 report-changes" style="margin-bottom: .5em">
                    {% if 'diff_link' in version %}
                      <a href="{{version.diff_link}}">
                    {% endif %}
@@ -118,6 +120,7 @@
            <hr>
            {% endif %}
            <div>Report Type: {{report.type}}</div>
+           <div>Source: {{sources|safe}}</div>
            <div>Raw Metadata: <a href="{{report.number}}.json">JSON</a></div>
        </div>
        </div>

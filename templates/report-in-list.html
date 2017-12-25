@@ -5,7 +5,9 @@
     	{{report.versions[0].date|date}}
     	<code>{{report.number}}</code>
     </p>
+    {% if report.versions[0].summary %}
     <div class="report-summary">{{report.versions[0].summary|truncate(600)|format_summary|safe}}</div>
+    {% endif %}
 </div>
 
 

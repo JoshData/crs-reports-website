@@ -16,15 +16,20 @@
 # c) The PDF files are scrubbed of author information,
 #    our back page is appended to each, and a PNG
 #    thumbnail image of the first page is generated.
+#
+# d) Reports from the University of North Texas archive
+#    are extracted and added into the metadata.
 
 import collections
 import datetime
 import glob
+import hashlib
 import os
 import os.path
 import json
 import re
 import random
+import shelve
 
 import tqdm
 import bleach
@@ -33,6 +38,7 @@ import html5lib
 
 INCOMING_DIR = 'incoming'
 UNT_ARCHIVE = 'untl-crs-collection.tar'
+UNT_SOURCE_STRING = "University of North Texas Libraries Government Documents Department"
 REPORTS_DIR = 'reports'
 
 
@@ -181,17 +187,50 @@ def load_ecr_reports_metadata(reports, author_names, withheld_reports):
 def load_unt_reports_metadata(reports, author_names):
     # Scan the University of North Texas archive for report metadata...
     if not os.path.exists(UNT_ARCHIVE): return
-    print("Reading UNT report metadata...")
+
     import tarfile
+
+    print("Reading UNT report metadata...")
+
     with tarfile.open(UNT_ARCHIVE) as untarchive:
+     with shelve.open(UNT_ARCHIVE+"_hashes.db") as hashcache:
+        # Read the entire tar directory. We'll need it a few times, and since
+        # extracting PDFs is expensive we want to know how many items we have
+        # in total so we can show a progress meter.
+        tardir = []
         while True:
-            # Get next entry in the tar file.
             fi = untarchive.next()
             if fi is None: break
-            if not fi.name.endswith(".xml"): continue
+            tardir.append(fi)
 
+        # Do a first pass, mapping directories to the name of the PDF file
+        # within them, since the PDF filename is not predictable.
+        directory_pdf_name = { }
+        for fi in tardir:
+            if fi.name.endswith(".pdf"):
+                p = fi.name.split("/")
+                directory_pdf_name["/".join(p[:-1])] = fi.name
+
+        # Do a third pass locating XML metadata records and corresponding PDFs.
+        unt_reports = []
+        for fi in tardir:
+            if not fi.name.endswith(".xml"): continue
+            if fi.name.endswith(".pro.xml"): continue # some other metadata stuff
+            fi_dirname = "/".join(fi.name.split("/")[:-1])
+            pdf_fn = directory_pdf_name.get(fi_dirname)
+            if not pdf_fn: continue # no PDF here
+            unt_reports.append((fi, pdf_fn))
+
+        # Do a third pass creating metadata records.
+        existing_reports = set(reports.keys())
+        num_new_reports = 0
+        num_new_versions = 0
+        for (fi, pdf_src_fn) in tqdm.tqdm(unt_reports, desc="UNT reports"):
             # Parse its metadata XML file.
             md = lxml.etree.parse(untarchive.extractfile(fi))
+            #print(lxml.etree.tostring(md, encoding=str))
+
+            # Helper function to get values out of the XML DOM by tag and attribute.
             def getvalue(tag, qualifier, fallback=False, required=True):
                 node = md.find(tag + "[@qualifier='" + qualifier + "']")
                 if node is None and fallback:
@@ -202,6 +241,38 @@ def load_unt_reports_metadata(reports, author_names):
                     raise ValueError("No %s in: %s" % (tag, lxml.etree.tostring(md)))
                 return node.text
 
+            if getvalue("title", "seriestitle", False, False) in ("Legal Sidebar", "Legal Sidebars"):
+                # Legal Sidebars don't seem to have report numbers / identifiers.
+                continue
+
+            # Extract the CRS report number and date.
+            try:
+                report_number = getvalue("identifier", "CRS")\
+                                 .replace(" ", "")
+                if not re.match(r"^[0-9A-Z-]+$", report_number): continue # invalid, will be problematic to make a URL
+                report_date = getvalue("date", "creation")
+                if len(report_date) == 4: report_date += "-01-01" # make up a date
+                if len(report_date) == 7: report_date += "-01" # make up a date
+                if report_date == "2009-02-29": report_date = "2009-02-28" # weird, that date did not exist
+            except ValueError:
+                # no report number or date?
+                continue
+
+            # Construct a filename that we'll save the PDF as. Use the report number, date, and SHA1 hash
+            # of the file content as we do with the newer files. Since the metadata extraction may fail,
+            # we don't write to disk until after. Cache the hashes.
+            if pdf_src_fn in hashcache:
+                pdf_content_hash = hashcache[pdf_src_fn]
+                pdf_content = None
+            else:
+                h = hashlib.sha1()
+                with untarchive.extractfile(pdf_src_fn) as f1:
+                    pdf_content = f1.read()
+                h.update(pdf_content)
+                pdf_content_hash = h.hexdigest()
+                hashcache[pdf_src_fn] = pdf_content_hash # store for next time
+            pdf_fn = "files/" + report_date.replace("-", "") + "_" + report_number + "_" + pdf_content_hash + ".pdf"
+
             # Get an identifier for this version.
             try:
                 report_version_id = getvalue("identifier", "LOCAL-CONT-NO")
@@ -211,25 +282,23 @@ def load_unt_reports_metadata(reports, author_names):
                 except:
                     report_version_id = fi.name
 
-            if getvalue("title", "seriestitle", False, False) == "Legal Sidebar":
-                # Legal Sidebars don't seem to have report numbers / identifiers.
-                continue
-
+            # Create the metadata record for this report version.
             try:
-                report_number = getvalue("identifier", "CRS")
                 rec = collections.OrderedDict([
-                    ("source", "UNT"),
+                    ("source", UNT_SOURCE_STRING),
+                    ("sourceLink", "https://digital.library.unt.edu/" + getvalue("meta", "ark") + "/"),
                     ("id", report_version_id),
-                    ("date", getvalue("date", "creation")),
-                    ("retrieved", getvalue("meta", "metadataCreationDate")), # not ISO format
+                    ("date", report_date + "T00:00:00"),
+                    ("retrieved", getvalue("meta", "metadataCreationDate").replace(", ", "T")), # not ISO format originally but this fix seems to work, don't know what time zone though
                     ("title", getvalue("title", "officialtitle", True)),
                     ("summary", getvalue("description", "content", False, False)),
                     ("type", "CRS Report"), # title[qualifier=seriestitle] is sometimes "Legal Sidebar" but other values are weird
                     ("typeId", "REPORT"),
+                    ("active", False),
                     ("formats", [
                         collections.OrderedDict([
                             ("format", "PDF"),
-                            ("filename", fi.name),
+                            ("filename", pdf_fn),
                         ])
                         ]),
                     ("topics", # there's no indication that the PrdsCliItemId has a clash between the two types (IBCList, CongOpsList)
@@ -239,22 +308,61 @@ def load_unt_reports_metadata(reports, author_names):
                             ("name", subject.text)
                             ])
                             for subject in md.findall("subject")]
-                        ),            
+                        ),
                 ])
 
-                # Store by report number.
+            except ValueError as e:
+                # TODO: Not all of the metadata provides all of the data values
+                # we're try to extract above, and we are skipping over any
+                # errors extracting metadata. There are probably more reports
+                # that we could extract from this archive if we inspect the
+                # errors we're getting.
+                #print(report_version_id, e)
+                #print(lxml.etree.tostring(md, encoding=str))
+                continue
+
+            # Store this document by report number since it may be a version
+            # of a document that may have multiple versions.
+            #
+            # Since we're collecting from multiple sources, don't add it if
+            # we have a version for this document with the same date.
+            if report_number not in existing_reports and report_number not in reports:
+                num_new_reports += 1
+            for v in reports[report_number]:
+                if v["date"][:10] == rec["date"][:10]:
+                    # There's already a document for this date.
+                    # We seem to have duplicates within the UNT archive
+                    # and of course also across collections.
+                    break
+            else:
+                # This record is new.
+                if report_number in existing_reports:
+                    num_new_versions += 1
                 reports[report_number].append(rec)
 
-            except ValueError as e:
-                print(report_version_id, e)
-                #print(lxml.etree.tostring(md).decode("ascii"))
+            # Save PDF file. We may or may not have read it earlier.
+            pdf_fn = os.path.join(REPORTS_DIR, pdf_fn)
+            if not os.path.exists(pdf_fn):
+                if pdf_content is None:
+                    with untarchive.extractfile(pdf_src_fn) as f1:
+                        pdf_content = f1.read()
+                with open(pdf_fn, "wb") as f:
+                    f.write(pdf_content)
 
+        print(num_new_reports, "new reports from UNT,", num_new_versions, "new versions of existing reports")
 
 def transform_report_metadata(report_number, report_versions):
     # Construct the data structure for a report, given a list of report versions.
     #
     # The return value is an OrderedDict so that our output maintains the fields
     # in a consistent order.
+
+    # construct a source string that lists sources in reverse chronological order
+    sources = []
+    for m in report_versions:
+        if m["source"] not in sources:
+            sources.append(m["source"])
+
     m = report_versions[0]
     return collections.OrderedDict([
         ("id", report_number),
@@ -262,7 +370,7 @@ def transform_report_metadata(report_number, report_versions):
         ("typeId", m['typeId']),
         ("number", report_number),
         ("active", m["active"]),
-        ("source", ", ".join(set(mm["source"] for mm in report_versions))),
+        ("source", ", ".join(sources)),
         ("versions", report_versions),
     ])
 

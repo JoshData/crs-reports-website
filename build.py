@@ -11,7 +11,7 @@
 #
 # * A static website in ./build.
 
-import sys, os, os.path, glob, shutil, collections, json, datetime, re, hashlib, csv, subprocess
+import sys, os, os.path, glob, shutil, collections, json, datetime, re, hashlib, csv, subprocess, html
 
 import tqdm
 import pytz
@@ -219,7 +219,7 @@ def copy_static_assets():
 def get_report_url_path(report, ext):
     # Sanity check that report numbers won't cause invalid file paths.
     if not re.match(r"^[0-9A-Z-]+$", report["number"]):
-        raise Exception("Report has a number that would cause problems for our URL structure.")
+        raise Exception("Report has a number {} that would cause problems for our URL structure.".format(repr(report["number"])))
 
     # Construct a URL path.
     return "reports/%s%s" % (report["number"], ext)
@@ -252,6 +252,20 @@ def generate_report_page(report):
     # e.g. ONLY=R41360
     if os.environ.get("ONLY") and report["number"] != os.environ.get("ONLY"):
         return
+
+    # Construct an HTML string with source information, listing each source
+    # once and in chronological order, since a report can have versions from
+    # multiple sources.
+    seen_sources = set()
+    sources = []
+    for version in report["versions"]:
+        if version["source"] in seen_sources: continue
+        seen_sources.add(version["source"])
+        if not version.get("sourceLink"):
+            sources.append(html.escape(version["source"]))
+        else:
+            sources.append("<a href=\"{}\">{}</a>".format(html.escape(version["sourceLink"]), html.escape(version["source"])))
+    sources = ", ".join(sources)
 
     # Find the most recent HTML file, the most recent PDF file,
     # and load diff info between pairs of sequential versions.
@@ -302,9 +316,15 @@ def generate_report_page(report):
 
     # Some reports have summaries that are just the whole report
     # in plain text. Hide those summaries.
-    summary = report["versions"][0]["summary"].strip()
+    summary = (report["versions"][0].get("summary") or "").strip()
     show_summary = not most_recent_text \
         or (len(summary) > 10) and (len(summary) < .25*len(most_recent_text))
+
+    # If there is no summary and no text HTML but there is a PDF, convert the PDF
+    # to text.
+    if not summary and not most_recent_text and most_recent_pdf_fn:
+        most_recent_text = subprocess.check_output(["pdftotext", os.path.join(REPORTS_DIR, most_recent_pdf_fn), "-"]).decode("utf8")
+        most_recent_text = "<div style='white-space: pre; word-break: break-all; word-wrap: break-word;'>{}</div>".format(html.escape(most_recent_text))
 
     # Is there an epub?
     epub_fn = os.path.join(REPORTS_DIR, "epubs", report["number"] + ".epub")
@@ -318,6 +338,7 @@ def generate_report_page(report):
     # Generate the report HTML page.
     generate_static_page("report.html", {
         "report": report,
+        "sources": sources,
         "html": most_recent_text,
         "thumbnail_url": SITE_URL + "/" + get_report_url_path(report, '.png'),
         "show_summary": show_summary,

@@ -56,10 +56,13 @@ report thumbnail: <code>https://www.everycrsreport.com/reports/R44636.png</code>
 
 <pre>
 {
+  "id": "R41330",
   "type": "CRS Report",
-  "number": "R41330",
+  "source": "EveryCRSReport.com",
   "versions": [
     {
+      "id": 393782,
+      "source": "EveryCRSReport.com",
       "date": "2016-09-15T00:00:00",
       "title": "National Monuments and the Antiquities Act",
       "summary": "The Antiquities Act of 1906 authorizes ... from potential threats.",
@@ -90,16 +93,16 @@ report thumbnail: <code>https://www.everycrsreport.com/reports/R44636.png</code>
 
 <h3>Report Object</h3>
 
-<p>The top-level object represents a CRS report and contains two fields:</p>
+<p>The top-level object represents a CRS report and contains two main fields:</p>
 
 <pre>{
-  "number": "R41330",
+  "id": "R41330",
   "versions": [
    ...
   ]
 }</pre>
 
-<p>The <code>number</code> field is an identifier for the report assigned by CRS.</p>
+<p>The <code>id</code> field is an identifier for the report assigned by CRS.</p>
 
 <p>CRS may update a report. Each update is listed in <code>versions</code> as a Report Version Objects (see below). Because the metadata may change in each update, all of the metadata for a report besides its number is stored in the metadata of the versions. The versions are in reverse-chronological order, so the first entry has the most recent metadata.</p>
 
@@ -108,6 +111,8 @@ report thumbnail: <code>https://www.everycrsreport.com/reports/R44636.png</code>
 <p>Each report version has several fields:</p>
 
 <pre>{
+  "id": 393782,
+  "source": "EveryCRSReport.com",
   "date": "2016-09-15T00:00:00",
   "title": "National Monuments and the Antiquities Act",
   "summary": "The Antiquities Act of 1906 authorizes ... from potential threats.",
@@ -124,8 +129,6 @@ report thumbnail: <code>https://www.everycrsreport.com/reports/R44636.png</code>
 }</pre>
 
 <p><code>date</code> is the publication date of the report (or updated report).</p>
-
-<p><code>topics</code> comes from CRS metadata. (We do not use this to generate the Topic Areas on this website, however.)</p>
 
 <p><code>formats</code> is a list of zero or more Report Version Format objects (see below).</p>
 
