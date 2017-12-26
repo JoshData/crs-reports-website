@@ -22,6 +22,12 @@ def iter_files():
         with open(reportfn) as f:
             report = json.load(f)
 
+        # Don't do diffs on reports whose most recent version
+        # is long ago. It's less interesting and takes up a
+        # lot of CPU time.
+        if report["versions"][0]["source"] != "EveryCRSReport.com" or report["versions"][0]["date"] < "2016":
+            continue
+
         prev_version = None
         for version in reversed(report["versions"]):
             for file in version["formats"]:
@@ -69,8 +75,11 @@ def create_diff(version1, version2, output_fn):
 
         return (doc, dom)
 
-    version1_text, version1_dom = load_html(version1)
-    version2_text, version2_dom = load_html(version2)
+    try:
+        version1_text, version1_dom = load_html(version1)
+        version2_text, version2_dom = load_html(version2)
+    except ValueError:
+        return
 
     # Compute diff. Each DOM is updated in place with
     # <ins>/<del> tags.
