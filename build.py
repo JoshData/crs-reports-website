@@ -463,10 +463,12 @@ def generate_csv_listing():
     return reports_csv_excerpt
 
 def make_link(src, dst):
-    # If file exists but inodes are not the same, then must
-    # unlink and link. If src is None, delete dst.
-    if os.path.exists(dst):
-        if src and os.stat(src).st_ino == os.stat(dst).st_ino:
+    # If the destination exists (possibly a broken symlink) then delete
+    # it before creating the hard link, unless it's a hard link to the
+    # source already. Use l* functions so this doesn't break with broken
+    # symlinks (exists and stat error out on broken symlinks).
+    if os.path.lexists(dst):
+        if src and os.lstat(src).st_ino == os.lstat(dst).st_ino:
             return # files are already hardlinked
         os.unlink(dst) # destination exists and is not a hardlink
     if src:
