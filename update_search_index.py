@@ -60,7 +60,7 @@ def update_search_index():
     json.dump(cache, open(".index-cache.json", "w"))
 
 def update_search_index_for(report, index):
-    # Find the most recent HTML text that we'll perform text matching on.
+    # Find the most recent HTML text, which we'll use for indexing.
     text_fn = None
     text = None
     for version in reversed(report["versions"]):
@@ -79,10 +79,10 @@ def update_search_index_for(report, index):
 
                 # Convert to plain text.
                 text = lxml.etree.tostring(dom, method='text', encoding=str)
-        except FileNotFoundError:
-            print("Missing HTML", report["number"], version["date"])
+        except (FileNotFoundError, ValueError):
+            print("Missing/invalid HTML", report["number"], version["date"])
 
-    # There's a quote on the size of the index_data, 10KB minified JSON
+    # There's a quota on the size of the index_data, 10KB minified JSON
     # according to the docs, although we seem to be able to push more
     # than that. Limit the amount of text we send up.
     if text:
@@ -99,7 +99,7 @@ def update_search_index_for(report, index):
         "lastPubYear": int(report["versions"][0]["date"][0:4]),
         "firstPubYear": int(report["versions"][-1]["date"][0:4]),
         "date": parse_dt(report["versions"][0]["date"]).strftime("%b. %-d, %Y"),
-        "summary": report["versions"][0]["summary"][0:10000],
+        "summary": (report["versions"][0].get("summary") or "")[0:10000],
         "topics": report["topics"],
         "isUpdated": len(report["versions"]) > 1,
         "text": text,

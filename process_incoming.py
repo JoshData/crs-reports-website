@@ -39,7 +39,7 @@ import lxml.etree
 import html5lib
 
 INCOMING_DIR = 'incoming'
-UNT_ARCHIVE = 'untl-crs-collection.tar'
+UNT_ARCHIVE = 'incoming/untl-crs-collection.tar'
 UNT_SOURCE_STRING = "University of North Texas Libraries Government Documents Department"
 REPORTS_DIR = 'reports'
 
@@ -124,7 +124,7 @@ def load_ecr_reports_metadata(reports, author_names, withheld_reports):
     print("Reading CRS.gov report metadata...")
 
     # Scan the "incoming" directory for report version metadata...
-    for fn in glob.glob(os.path.join(INCOMING_DIR, "documents/*.json")):
+    for fn in sorted(glob.glob(os.path.join(INCOMING_DIR, "documents/*.json"))):
         with open(fn) as f:
             try:
                 doc = json.load(f)
@@ -182,8 +182,16 @@ def load_ecr_reports_metadata(reports, author_names, withheld_reports):
                 ), # TODO: ChildIBCs?
         ])
 
-        # Store by report number.
-        reports[doc['ProductNumber']].append(rec)
+        # Check that we don't have this version already - sometimes we have multiple
+        # scrapes on the same date.
+        for v in reports[doc['ProductNumber']]:
+            if v["date"] == rec["date"]:
+                # There's already a document for this date.
+                break
+        else:
+            # This record is new.
+            # Store by report number.
+            reports[doc['ProductNumber']].append(rec)
 
         # Collect a list of author names which we'll use for redaction.
         for author in doc["Authors"]:
@@ -333,17 +341,22 @@ def load_unt_reports_metadata(reports, author_names):
             # we have a version for this document with the same date.
             if report_number not in existing_reports and report_number not in reports:
                 num_new_reports += 1
+            is_dup = False
             for v in reports[report_number]:
                 if v["date"][:10] == rec["date"][:10]:
                     # There's already a document for this date.
                     # We seem to have duplicates within the UNT archive
                     # and of course also across collections.
+                    is_dup = True
                     break
-            else:
-                # This record is new.
-                if report_number in existing_reports:
-                    num_new_versions += 1
-                reports[report_number].append(rec)
+
+            if is_dup:
+                continue
+
+            # This record is new.
+            if report_number in existing_reports:
+                num_new_versions += 1
+            reports[report_number].append(rec)
 
             # Save PDF file. We may or may not have read it earlier.
             pdf_fn = os.path.join(REPORTS_DIR, pdf_fn)
