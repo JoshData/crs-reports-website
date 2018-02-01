@@ -163,6 +163,8 @@ Create a new file named `credentials.txt` and put in it the AWS IAM user's acces
 	ALGOLIA_SEARCH_ACCESS_KEY=...
 	ALGOLIA_INDEX_NAME=...
 
+Create a new file named `credentials.google_service_account.json` and place a Google API System Account's JSON credentials in the file. The credentials should have access to the EveryCRSReport.com Google Analytics view.
+
 ### Running the site generator
 
 To generate & update the website, run:
@@ -174,6 +176,8 @@ Under the hood, this:
 * Fetches the latest CRS reports metadata and files from our private archive, saving them into `incoming/`. (`fetch_reports_files.sh`)
 
 * Prepares the raw files for publication, creating new JSON and sanitizing the HTML and PDFs, saving the new files into `reports/`. This step is quite slow, but it will only process new files on each run. If our code changes and the sanitization process has been changed, delete the whole `reports/` directory so it re-processes everything from scratch. (`process_incoming.py`) 
+
+* Queries Google Analytics for top-accessed reports in the last week.
 
 * Generates the complete website in the `build/` directory. (`build.py`)
 

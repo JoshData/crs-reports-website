@@ -1,7 +1,9 @@
 /incoming
 /reports
 /credentials.txt
+/credentials.google_service_account.json
 /build
 /cache
 __pycache__
-.index-cache.json
+/.index-cache.json
+/trending-reports.txt

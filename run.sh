@@ -4,6 +4,7 @@
 ./assign_topics.py
 ./compare_versions.py
 ./make_epubs.py
+./analytics_trending.py
 ./build.py
 ./publish.sh
 ./update_search_index.py

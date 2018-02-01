@@ -92,6 +92,20 @@ def load_all_reports():
 
     return reports
 
+def get_trending_reports(reports):
+    # Map IDs to records.
+    reports_by_id = { report["id"]: report for report in reports } 
+
+    # Load top accessed reports from analytics-trending.py.
+    trending_reports = []
+    with open("trending-reports.txt") as f:
+        for line in f:
+            report_id = line.strip()
+            if report_id in reports_by_id:
+                trending_reports.append(reports_by_id[report_id])
+
+    return trending_reports
+
 
 def index_by_topic(reports):
     # Apply categories to the reports.
@@ -510,6 +524,7 @@ if __name__ == "__main__":
         "recent_reports": reports[0:6],
         "reports_csv_excerpt": reports_csv_excerpt,
         "all_reports": reports,
+        "trending_reports": get_trending_reports(reports),
     })
 
     # Copy static assets (CSS etc.).
