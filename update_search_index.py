@@ -56,8 +56,8 @@ def update_search_index():
         # Save to cache that we did this file.
         cache[reportfn] = key
 
-    # Update cache.
-    json.dump(cache, open(".index-cache.json", "w"))
+        # Update cache.
+        json.dump(cache, open(".index-cache.json", "w"))
 
 def update_search_index_for(report, index):
     # Find the most recent HTML text, which we'll use for indexing.
@@ -86,7 +86,7 @@ def update_search_index_for(report, index):
     # according to the docs, although we seem to be able to push more
     # than that. Limit the amount of text we send up.
     if text:
-        text = text[:20000]
+        text = text[:13000]
 
     # Construct index data.
     index_data = {
@@ -99,7 +99,7 @@ def update_search_index_for(report, index):
         "lastPubYear": int(report["versions"][0]["date"][0:4]),
         "firstPubYear": int(report["versions"][-1]["date"][0:4]),
         "date": parse_dt(report["versions"][0]["date"]).strftime("%b. %-d, %Y"),
-        "summary": (report["versions"][0].get("summary") or "")[0:10000],
+        "summary": (report["versions"][0].get("summary") or "")[0:20000],
         "topics": report["topics"],
         "isUpdated": len(report["versions"]) > 1,
         "text": text,
