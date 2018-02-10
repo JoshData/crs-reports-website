@@ -1,0 +1,27 @@
+{% extends "master.html" %}
+
+{% block title %}
+Most Viewed Reports on EveryCRSReport.com
+{% endblock %}
+
+{% block head %}
+<style>
+</style>
+{% endblock %}
+
+{% block body %}
+<h1>Most Viewed CRS Reports by Week</h1>
+
+<p>These are the top reports viewed on EveryCRSReport.com each week, updated every Monday.</p>
+
+{% for week in most_viewed_reports %}
+  <h2>{{week.date_start}} through {{week.date_end}}</h2>
+
+  {% for report, pageviews in week.reports[0:10] %}
+    <div class="crs-report" style="margin: 0">
+      <p class="report-title" style="font-weight: normal">{{loop.index}}. <a href="/reports/{{report.number}}.html">{{report.versions[0].title}}</a> <code>{{report.number}}</code></p>
+    </div>
+  {% endfor %}
+{% endfor %}
+
+{% endblock %}

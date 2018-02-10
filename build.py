@@ -92,6 +92,7 @@ def load_all_reports():
 
     return reports
 
+
 def get_trending_reports(reports):
     # Map IDs to records.
     reports_by_id = { report["id"]: report for report in reports } 
@@ -105,6 +106,35 @@ def get_trending_reports(reports):
                 trending_reports.append(reports_by_id[report_id])
 
     return trending_reports
+
+
+def get_most_viewed_reports(reports):
+    # Map IDs to records.
+    reports_by_id = { report["id"]: report for report in reports }
+
+    # Load top accessed reports from JSON file whose keys are dates
+    # in ISO format (not important here) and whose values are stats
+    # for the week ending on that date.
+    with open("top-reports-by-week.json") as f:
+        most_accessed_reports = json.load(f)
+
+    # Sort in reverse-chronological order. Keep just the values, drop
+    # the keys. The values have the date range strings.
+    most_accessed_reports = sorted(most_accessed_reports.items(), reverse=True)
+    most_accessed_reports = [ kv[1] for kv in most_accessed_reports ]
+
+    # Replace report IDs with their data dictionaries.
+    for statsweek in most_accessed_reports:
+      statsweek["reports"] = [
+       (
+         reports_by_id[reportrec[0]],
+         reportrec[1], # pageviews
+       )
+       for reportrec in statsweek["reports"]
+       if reportrec[0] in reports_by_id
+      ]
+
+    return most_accessed_reports
 
 
 def index_by_topic(reports):
@@ -525,6 +555,7 @@ if __name__ == "__main__":
         "reports_csv_excerpt": reports_csv_excerpt,
         "all_reports": reports,
         "trending_reports": get_trending_reports(reports),
+        "most_viewed_reports": get_most_viewed_reports(reports),
     })
 
     # Copy static assets (CSS etc.).
