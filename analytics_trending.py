@@ -9,15 +9,6 @@ KEY_FILE_LOCATION = 'credentials.google_service_account.json'
 VIEW_ID = '130670929'
 
 
-def get_report(analytics):
-  """Queries the Analytics Reporting API V4.
-
-  Args:
-    analytics: An authorized Analytics Reporting API V4 service object.
-  Returns:
-    The Analytics Reporting API V4 response.
-  """
-
 def main():
   # Load credentials and create API client.
   credentials = ServiceAccountCredentials.from_json_keyfile_name(
@@ -39,18 +30,23 @@ def main():
       }
     ).execute()
 
-  # Map report IDs to pageviews.
-  data = { }
-  for r in response['reports'][0]['data']['rows']:
-    if r["dimensions"][0] == "/reports/":
-      report_id = r["dimensions"][1].lstrip("/").replace(".html", "")
-      pageviews = int(r["metrics"][0]["values"][0])
-      data[report_id] = pageviews
+  # Go to the pageviews report.
+  pageviews = response['reports'][0]['data']['rows']
 
-  # Write out top 100.
-  sorted_top_reports = sorted(data.items(), key = lambda kv : -kv[1])
+  # Transform the list to tuples of report ID and pageviews
+  # (still in descending order, per the query above).
+  pageviews = [
+    (
+      r["dimensions"][1].lstrip("/").replace(".html", ""),
+      int(r["metrics"][0]["values"][0])
+    )
+    for r in pageviews
+    if r["dimensions"][0] == "/reports/"
+  ]
+
+  # Write out the top 20.
   with open("trending-reports.txt", "w") as f:
-    for report_id, pageviews in sorted_top_reports[:20]:
+    for report_id, pageviews in pageviews[0:20]:
       f.write(report_id + "\n")
 
 if __name__ == '__main__':
