@@ -375,7 +375,7 @@ def add_missing_html_formats(reports):
         for version in versions:
             # What formats are available for this version?
             formats = { format["format"]: format["filename"] for format in version["formats"] }
-            if "PDF" in formats and "HTML" not in formats:
+            if "PDF" in formats and "HTML" not in formats and os.path.exists(os.path.join(REPORTS_DIR, formats["PDF"])):
                 html_fn = formats["PDF"].replace(".pdf", ".html")
 
                 # Convert, unless we have it already from the last run of this script.
