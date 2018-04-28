@@ -85,8 +85,10 @@ def update_search_index_for(report, index):
     # There's a quota on the size of the index_data, 10KB minified JSON
     # according to the docs, although we seem to be able to push more
     # than that. Limit the amount of text we send up.
+    max_text_length = 13000 - len(report["versions"][0]["title"]) - len(report["topics"])
+    summary = (report["versions"][0].get("summary") or "")[0:max_text_length]
     if text:
-        text = text[:13000]
+        text = text[:(max_text_length - len(summary))]
 
     # Construct index data.
     index_data = {
@@ -99,7 +101,7 @@ def update_search_index_for(report, index):
         "lastPubYear": int(report["versions"][0]["date"][0:4]),
         "firstPubYear": int(report["versions"][-1]["date"][0:4]),
         "date": parse_dt(report["versions"][0]["date"]).strftime("%b. %-d, %Y"),
-        "summary": (report["versions"][0].get("summary") or "")[0:20000],
+        "summary": summary,
         "topics": report["topics"],
         "isUpdated": len(report["versions"]) > 1,
         "text": text,
