@@ -430,7 +430,7 @@ def create_feed(reports, title, fn):
         for j, version in enumerate(report['versions']):
             feeditems.append((version['date'], i, j))
     feeditems.sort(reverse=True)
-    feeditems = feeditems[0:75]
+    feeditems = feeditems[0:25]
 
     # Create a feed.
     from feedgen.feed import FeedGenerator
@@ -438,15 +438,16 @@ def create_feed(reports, title, fn):
     feed.id(SITE_URL)
     feed.title(SITE_NAME + ' - ' + title)
     feed.link(href=SITE_URL, rel='alternate')
+    feed.link(href=SITE_URL+"/rss.xml", rel='self')
     feed.language('en')
     feed.description(description="New Congressional Research Service reports tracked by " + SITE_NAME + ".")
     for _, report_index, version_index in feeditems:
         report = reports[report_index]
         version = report["versions"][version_index]
         fe = feed.add_entry()
-        fe.id(SITE_URL + "/" + get_report_url_path(report, '.html'))
-        fe.title(version["title"])
-        fe.description(description=version["summary"])
+        fe.id(SITE_URL + "/" + get_report_url_path(report, '.html') + "/" + version["date"].isoformat().replace(":", ""))
+        fe.title(version["title"][:300])
+        fe.description(description=(version["summary"] or "")[:600])
         fe.link(href=SITE_URL + "/" + get_report_url_path(report, '.html'))
         fe.pubdate(version["date"])
     feed.rss_file(os.path.join(BUILD_DIR, fn))
