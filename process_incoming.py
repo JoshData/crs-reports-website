@@ -729,9 +729,14 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
     # Avoid inserting ?'s and spaces.
     redactor_options.content_replacement_glyphs = ['#', '*', '/', '-']
 
+    # Filter out links to email addresses which might also hold CRS staffer email addresses.
+    redactor_options.link_filters = [
+        lambda href, annotation : None if "mailto:" in href else href
+    ]
+
     # Run qpdf to decompress.
 
-    data = subprocess.check_output(['qpdf', '--qdf', '--stream-data=uncompress', in_file, "-"])
+    data = subprocess.check_output(['qpdf', '--normalize-content=y', '--stream-data=uncompress', in_file, "-"])
 
     with tempfile.NamedTemporaryFile() as f1:
         with tempfile.NamedTemporaryFile() as f2:
