@@ -488,13 +488,14 @@ def generate_csv_listing():
     # Generate a CSV listing of all of the reports.
     with open(os.path.join(BUILD_DIR, "reports.csv"), "w") as f:
         w = csv.writer(f)
-        w.writerow(["number", "url", "sha1", "latestPubDate", "latestPDF", "latestHTML"])
+        w.writerow(["number", "url", "sha1", "latestPubDate", "title", "latestPDF", "latestHTML"])
         for report in reports:
             w.writerow([
                 report["number"],
                 get_report_url_path(report, ".json"),
                 report["_hash"],
                 report["versions"][0]["date"].date().isoformat(),
+                report["versions"][0]["title"],
                 report["versions"][0]["formats"].get("PDF", {}).get("filename", ""),
                 report["versions"][0]["formats"].get("HTML", {}).get("filename", ""),
             ])
