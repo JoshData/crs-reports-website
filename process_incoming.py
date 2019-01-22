@@ -52,9 +52,8 @@ def write_report_json_files():
     # Load the incoming report JSON metadata which is by report-version
     # and collate by unique report.
     reports = collections.defaultdict(lambda : [])
-    author_names = set()
-    load_ecr_reports_metadata(reports, author_names, withheld_reports)
-    load_unt_reports_metadata(reports, author_names)
+    load_ecr_reports_metadata(reports, withheld_reports)
+    load_unt_reports_metadata(reports)
 
     # For any report with a PDF but no HTML, convert the PDF to HTML via pdftotext.
     add_missing_html_formats(reports)
@@ -97,19 +96,10 @@ def write_report_json_files():
             print("deleting", fn)
             os.unlink(fn)
 
-    # At least one author appears with a first initial in
-    # the metadata but the initial is dropped in the PDF
-    # (RL30240).
-    for name in list(author_names):
-        name_spl = name.split(" ")
-        if len(name_spl) >= 3 and name_spl[0].endswith('.'):
-            rest_of_name = " ".join(name_spl[1:])
-            author_names.add(rest_of_name)
-
-    return (reports, author_names)
+    return reports
 
 
-def load_ecr_reports_metadata(reports, author_names, withheld_reports):
+def load_ecr_reports_metadata(reports, withheld_reports):
     # Load all of the CRS reports metadata into memory. We do this because each report
     # is spread across multiple JSON files, each representing a snapshop of a metadata
     # record at a point in time when we fetched the information. The metadata snapshots
@@ -193,11 +183,7 @@ def load_ecr_reports_metadata(reports, author_names, withheld_reports):
             # Store by report number.
             reports[doc['ProductNumber']].append(rec)
 
-        # Collect a list of author names which we'll use for redaction.
-        for author in doc["Authors"]:
-            author_names.add(author["FirstName"]) # has full name
-
-def load_unt_reports_metadata(reports, author_names):
+def load_unt_reports_metadata(reports):
     # Scan the University of North Texas archive for report metadata...
     if not os.path.exists(UNT_ARCHIVE): return
 
@@ -416,7 +402,7 @@ def transform_report_metadata(report_number, report_versions):
         ("versions", report_versions),
     ])
 
-def clean_files(reports, author_names):
+def clean_files(reports):
     # Use a multiprocessing pool to divide the load across processors.
     from multiprocessing import Pool
     pool = Pool()
@@ -454,9 +440,9 @@ def clean_files(reports, author_names):
         # whole reports/files directory and re-run this.
         if os.path.exists(in_fn) and not os.path.exists(out_fn):
             if fn.endswith(".html"):
-                ar = pool.apply_async(trap_all, [clean_html, in_fn, out_fn, file, author_names])
+                ar = pool.apply_async(trap_all, [clean_html, in_fn, out_fn, file])
             elif fn.endswith(".pdf"):
-                ar = pool.apply_async(trap_all, [clean_pdf, in_fn, out_fn, version, author_names])
+                ar = pool.apply_async(trap_all, [clean_pdf, in_fn, out_fn, version])
             else:
                 continue
             open_tasks.append(ar)
@@ -484,7 +470,7 @@ def clean_files(reports, author_names):
                 os.unlink(fn)
 
 
-def clean_html(content_fn, out_fn, file_metadata, author_names):
+def clean_html(content_fn, out_fn, file_metadata):
     # Transform the scraped HTML page to the one that we publish:
     #
     # * The HTML file contains the entire HTML page from CRS.gov that the report was
@@ -534,8 +520,6 @@ def clean_html(content_fn, out_fn, file_metadata, author_names):
 
     allowed_classes = { 'ReportHeader' }
 
-    author_names_re = re.compile("|".join([re.escape(an) for an in author_names]))
-
     def scrub_text(text):
         # Scrub crs.gov email addresses from the text.
         # There's a separate filter later for addresses in mailto: links.
@@ -549,9 +533,6 @@ def clean_html(content_fn, out_fn, file_metadata, author_names):
 
         # Scrub all telephone numbers --- in (xxx) xxx-xxxx format.
         text = re.sub(r"\(\d\d\d\) \d\d\d-\d\d\d\d", "[phone number scrubbed]", text)
-
-        # Scrub all author names.
-        text = author_names_re.sub("[author name scrubbed]", text)
 
         return text
 
@@ -685,16 +666,9 @@ def trap_all(func, in_file, *args):
         print("\t", e)
         return
 
-def clean_pdf(in_file, out_file, file_metadata, author_names):
+def clean_pdf(in_file, out_file, file_metadata):
     from pdf_redactor import redactor, RedactorOptions
     import io, re, subprocess, tempfile, shutil
-
-    # Form a regex for author names, replacing spaces with optional whitespace.
-
-    author_name_regex = "|".join(
-        r"\s?".join(re.escape(an1) for an1 in an.split(" "))
-        for an in author_names
-    )
 
     # Set redaction options.
 
@@ -723,7 +697,6 @@ def clean_pdf(in_file, out_file, file_metadata, author_names):
         (re.compile("((^|[^\d])7-)\d{4}"), lambda m : m.group(1) + "...."), # use a symbol likely to be available
         (re.compile("\(\d\d\d\) \d\d\d-\d\d\d\d"), lambda m : "[redacted]"), # use a symbol likely to be available
         (re.compile("[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+(@crs.?(loc|gov))"), lambda m : ("[redacted]" + m.group(1))),
-        (re.compile(author_name_regex), lambda m : "(name redacted)"),
     ]
 
     # Avoid inserting ?'s and spaces.
@@ -799,7 +772,7 @@ if __name__ == "__main__":
     os.makedirs(os.path.join(REPORTS_DIR, 'diffs'), exist_ok=True)
 
     # Combine and transform the report JSON.
-    reports, author_names = write_report_json_files()
+    reports = write_report_json_files()
 
     # Clean/sanitize the HTML and PDF files and generate PNG thumbnails.
-    clean_files(reports, author_names)
+    clean_files(reports)
