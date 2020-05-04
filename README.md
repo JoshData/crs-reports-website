@@ -140,10 +140,10 @@ Get the PDF redaction script, install its dependencies, and install QPDF, which 
 	wget https://raw.githubusercontent.com/JoshData/pdf-redactor/master/pdf_redactor.py
 	pip3 install $(curl https://raw.githubusercontent.com/JoshData/pdf-redactor/master/requirements.txt)
 
-	sudo yum install gcc-c++ pcre-devel
-	wget http://downloads.sourceforge.net/project/qpdf/qpdf/6.0.0/qpdf-6.0.0.tar.gz
-	tar -zxf qpdf-6.0.0.tar.gz
-	(cd qpdf-6.0.0/ && ./configure && make && sudo make install)
+	sudo yum install gcc-c++ libjpeg-devel
+	wget https://github.com/qpdf/qpdf/releases/download/release-qpdf-10.0.1/qpdf-10.0.1.tar.gz
+	tar -zxf qpdf-10.0.1.tar.gz
+	(cd qpdf-10.0.1/ && ./configure --disable-crypto-openssl && make && sudo make install)
 
 Get pandoc from https://pandoc.org/installing.html#linux.
 

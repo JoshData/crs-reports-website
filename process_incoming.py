@@ -733,7 +733,7 @@ def clean_pdf(in_file, out_file, file_metadata):
             # Linearize and add our own page to the end of the PDF. The qpdf command
             # for this is pretty weird. All we're doing is appending a page.
             import subprocess
-            subprocess.check_call(['qpdf', '--linearize', f1.name,
+            subprocess.check_call(['qpdf', '--optimize-images', '--linearize', f1.name,
                 "--pages", f1.name, "branding/pdf-addendum-page.pdf", "--",
                 f2.name])
 
