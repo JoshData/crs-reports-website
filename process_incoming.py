@@ -10,10 +10,10 @@
 #    versions.
 #
 # b) The HTML files are sanitized and scrubbed of
-#    author information. Image files are copied
+#    some author information. Image files are copied
 #    to the output directory.
 #
-# c) The PDF files are scrubbed of author information,
+# c) The PDF files are scrubbed of some author information,
 #    our back page is appended to each, and a PNG
 #    thumbnail image of the first page is generated.
 #
@@ -481,7 +481,7 @@ def clean_html(content_fn, out_fn, file_metadata):
     #   a scraped version of the image.
     # * Rewrite internal crs.gov links to point to the corresponding report on
     #   everycrsreport.com.
-    # * Scrub author names.
+    # * Scrub author phone numbers and email addresses.
 
     with open(content_fn, "rb") as f:
         content = f.read()
@@ -691,7 +691,7 @@ def clean_pdf(in_file, out_file, file_metadata):
     # Clear XMP.
     redactor_options.xmp_filters = [lambda xml : None]
 
-    # Redact phone numbers, email addresses, and author names.
+    # Redact phone numbers and email addresses.
     # See the notes on the regular expressions above for the HTML scrubber.
     redactor_options.content_filters = [
         (re.compile("((^|[^\d])7-)\d{4}"), lambda m : m.group(1) + "...."), # use a symbol likely to be available
