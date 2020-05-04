@@ -708,8 +708,14 @@ def clean_pdf(in_file, out_file, file_metadata):
     ]
 
     # Run qpdf to decompress.
-
-    data = subprocess.check_output(['qpdf', '--normalize-content=y', '--stream-data=uncompress', in_file, "-"])
+    try:
+        data = subprocess.check_output(['qpdf', '--normalize-content=y', '--stream-data=uncompress', in_file, "-"])
+    except subprocess.CalledProcessError as e:
+        if e.returncode == 3:
+            # There were warnings but output was otherwise OK.
+            data = e.output
+        else:
+            raise
 
     with tempfile.NamedTemporaryFile() as f1:
         with tempfile.NamedTemporaryFile() as f2:
