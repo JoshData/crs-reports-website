@@ -104,7 +104,9 @@ Every CRS Report
             {{report.versions[0].date|date}}
             <code>{{report.number}}</code>
           </p>
+          {% if report.versions[0].summary is not none %}
           <div class="report-summary">{{report.versions[0].summary|truncate(140)}}</div>
+          {% endif %}
          </div>
         </div>
       </div>
@@ -126,7 +128,9 @@ Every CRS Report
             {{report.versions[0].date|date}}
             <code>{{report.number}}</code>
           </p>
+          {% if report.versions[0].summary is not none %}
           <div class="report-summary">{{report.versions[0].summary|truncate(140)}}</div>
+          {% endif %}
          </div>
         </div>
       </div>

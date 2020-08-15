@@ -26,7 +26,7 @@ utc_tz = pytz.timezone("UTC")
 
 
 def parse_dt(s, hasmicro=False, utc=False):
-    dt = datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S" + (".%f" if hasmicro else ""))
+    dt = datetime.datetime.strptime(s, "%Y-%m-%d" + ("T%H:%M:%S" if "T" in s else "") + (".%f" if hasmicro else ""))
     return (utc_tz if utc else us_eastern_tz).localize(dt)
 
 # Load config info --- some are passed into page templates.

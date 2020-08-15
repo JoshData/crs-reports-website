@@ -44,19 +44,18 @@ UNT_SOURCE_STRING = "University of North Texas Libraries Government Documents De
 REPORTS_DIR = 'reports'
 
 
-def write_report_json_files():
+def read_reports_metadata():
     # Load our block list.
     with open("withheld-reports.txt") as f:
         withheld_reports = set(line.split("\t")[0] for line in f)
 
-    # Load the incoming report JSON metadata which is by report-version
-    # and collate by unique report.
+    # Load the report version JSON metadata which is by report-version
+    # and collate by report. We get report version JSON data from three
+    # sources.
     reports = collections.defaultdict(lambda : [])
-    load_ecr_reports_metadata(reports, withheld_reports)
-    load_unt_reports_metadata(reports)
-
-    # For any report with a PDF but no HTML, convert the PDF to HTML via pdftotext.
-    add_missing_html_formats(reports)
+    load_crs_dot_gov_reports(reports, withheld_reports)
+    load_unt_reports(reports)
+    load_crsreports_dot_congress_dot_gov_reports(reports)
 
     # For each report, sort the report version records in reverse-chronological order, putting
     # the most recent one first. Sort on the report date and on the retrieved date, since the
@@ -71,24 +70,28 @@ def write_report_json_files():
     reports = list(reports.items())
     reports.sort(key = lambda kv : (kv[1][0]['date'], kv[1][0]['retrieved']), reverse=True)
 
+    # Transform to the public metadata format.
+    reports = [
+      transform_report_metadata(report_number, report_versions)
+      for report_number, report_versions in reports
+    ]
+
+    return reports
+
+def write_reports_metadata(reports):
     # Write the reports out to disk.
     all_files = set()
-    for i, (report_number, report_versions) in enumerate(reports):
+    for report in reports:
         # Construct a file name for the JSON.
-        out_fn = os.path.join(REPORTS_DIR, "reports", report_number + ".json")
+        out_fn = os.path.join(REPORTS_DIR, "reports", report["id"] + ".json")
 
         # Remember it so we can delete orphaned files.
         all_files.add(out_fn)
 
-        # Transform and write it out.
-        try:
-            reports[i] = transform_report_metadata(report_number, report_versions)
-        except Exception as e:
-            print(out_fn)
-            print("\t", e)
-        else:
-            with open(out_fn, "w") as f2:
-                f2.write(json.dumps(reports[i], indent=2))
+        # Write it out.
+        with open(out_fn, "w") as f2:
+            f2.write(json.dumps(report, indent=2))
+
 
     # Delete orphaned files.
     for fn in glob.glob(os.path.join(REPORTS_DIR, 'reports', '*')):
@@ -100,17 +103,10 @@ def write_report_json_files():
     return reports
 
 
-def load_ecr_reports_metadata(reports, withheld_reports):
-    # Load all of the CRS reports metadata into memory. We do this because each report
-    # is spread across multiple JSON files, each representing a snapshop of a metadata
-    # record at a point in time when we fetched the information. The metadata snapshots
-    # occur when there is a change in the metadata or file content.
-    #
-    # However, we want to make available data that is structured by report, not by
-    # version. So we must scan the whole dataset and put together report version
-    # records that are for the same report.
-    #
-    # We'll return a list of lists of metadata records collated by unique report.
+def load_crs_dot_gov_reports(reports, withheld_reports):
+    # Load all of the CRS report version metadata that was submitted through
+    # our inside-the-Capitol scraper. Add each report version into the reports
+    # dictionary that is keyed by the report ID (not the report version ID).
 
     print("Reading CRS.gov report metadata...")
 
@@ -184,7 +180,7 @@ def load_ecr_reports_metadata(reports, withheld_reports):
             # Store by report number.
             reports[doc['ProductNumber']].append(rec)
 
-def load_unt_reports_metadata(reports):
+def load_unt_reports(reports):
     # Scan the University of North Texas archive for report metadata...
     if not os.path.exists(UNT_ARCHIVE): return
 
@@ -221,7 +217,7 @@ def load_unt_reports_metadata(reports):
             if not pdf_fn: continue # no PDF here
             unt_reports.append((fi, pdf_fn))
 
-        # Do a third pass creating metadata records.
+        # Do a fourth pass creating metadata records.
         existing_reports = set(reports.keys())
         num_new_reports = 0
         num_new_versions = 0
@@ -357,18 +353,84 @@ def load_unt_reports_metadata(reports):
         print(num_new_reports, "new reports from UNT,", num_new_versions, "new versions of existing reports")
 
 
-def add_missing_html_formats(reports):
-    for versions in tqdm.tqdm(reports.values(), desc="pdftotext"):
-        for version in versions:
+def load_crsreports_dot_congress_dot_gov_reports(reports):
+    # Load all of the CRS report version metadata that was scraped from
+    # crsreports.congress.gov, the public website. Add each report version into the reports
+    # dictionary that is keyed by the report ID (not the report version ID).
+
+    print("Reading CRSReports.Congress.gov report metadata...")
+
+    # Scan the "incoming" directory for report version metadata...
+    source_dir = "crsreports.congress.gov"
+    for fn in sorted(glob.glob(os.path.join(INCOMING_DIR, source_dir + "/documents/*.json"))):
+        with open(fn) as f:
+            try:
+                doc = json.load(f)
+            except ValueError as e:
+                print(fn, e)
+                continue
+
+        m = re.search(r"/([^/]+)_(\d+)_[\d-]+\.json$", fn)
+        reportId = m.group(1)
+
+        # Check that we don't have this version already --- we may have it from
+        # a different data source.
+        for v in reports[reportId]:
+            if v["date"] == doc["date"]:
+                # There's already a document for this date.
+                break
+        else:
+            # This record is new.
+            # Store by report number.
+            doc["source_dir"] = source_dir
+            reports[reportId].append(doc)
+
+
+def add_missing_html_formats(reports, all_files):
+    for report, version, file in tqdm.tqdm(list(iter_files()), desc="extracting text"):
             # What formats are available for this version?
             formats = { format["format"]: format["filename"] for format in version["formats"] }
-            if "PDF" in formats and "HTML" not in formats and os.path.exists(os.path.join(REPORTS_DIR, formats["PDF"])):
-                html_fn = formats["PDF"].replace(".pdf", ".html")
+            if "HTML" in formats: continue
+            if file["format"] == "PDF" and os.path.exists(os.path.join(REPORTS_DIR, formats["PDF"])):
+                html_fn = file["filename"].replace(".pdf", ".html")
+                all_files.add(html_fn)
 
                 # Convert, unless we have it already from the last run of this script.
                 if not os.path.exists(os.path.join(REPORTS_DIR, html_fn)):
-                    html_fmt = subprocess.check_output(["pdftotext", os.path.join(REPORTS_DIR, formats["PDF"]), "-"]).decode("utf8")
+                    # Convert to plain text and then wrap in a preformatted div.
+                    try:
+                      html_fmt = subprocess.check_output(["pdftotext", os.path.join(REPORTS_DIR, formats["PDF"]), "-"]).decode("utf8")
+                    except:
+                      # Skip errors.
+                      continue
                     html_fmt = "<div style='white-space: pre; word-break: break-all; word-wrap: break-word;'>{}</div>".format(html.escape(html_fmt))
+
+                    # # pdftohtml will also extract images using the given filename as
+                    # # a prefix for the generated files and those paths will also be the SRC attributes
+                    # # in the HTML. Since the HTML will be saved into the same directory as the images
+                    # # (as the PDF file), change to the 'files' directory so that the SRC attributes
+                    # # have no directory path, otherwise they will have an extra path.
+                    # try:
+                    #   html_content = subprocess.check_output([
+                    #     "pdftohtml", "-stdout", "-zoom", "1.75", "-enc", "UTF-8", os.path.basename(pdf_file)
+                    #   ], cwd=BASE_PATH + "/files")
+                    # except subprocess.CalledProcessError:
+                    #     # PDF conversion failed. Maybe there was an error getting the PDF.
+                    #     # Skip for now. We seem to get a lot of zero-length PDF files.
+                    #     return
+
+                    # # Just take the body of the HTML file --- trash generated META tags.
+                    # html_content = re.search(b"<body(?:.*?)>(.*)</body>", html_content, re.S).group(1)
+
+                    # # Make a mapping of image files from their path in the HTML IMG SRC attributes
+                    # # to their path on disk relative to BASE_PATH.
+                    # image_path_map = { }
+                    # for img_fn in re.findall(b"<img src=\"(.*?)\"", html_content, re.S):
+                    #     img_fn = img_fn.decode("utf8")
+                    #     if os.path.exists(os.path.join(BASE_PATH, 'files', img_fn)):
+                    #         image_path_map[img_fn] = "files/" + img_fn
+
+                    # Save the HTML.
                     with open(os.path.join(REPORTS_DIR, html_fn), "w") as f:
                         f.write(html_fmt)
 
@@ -376,10 +438,10 @@ def add_missing_html_formats(reports):
                 version["formats"].append(collections.OrderedDict([
                     ("format", "HTML"),
                     ("filename", html_fn),
+                    #("images", image_path_map)
                 ]))
 
-
-
+              
 def transform_report_metadata(report_number, report_versions):
     # Construct the data structure for a report, given a list of report versions.
     #
@@ -403,35 +465,36 @@ def transform_report_metadata(report_number, report_versions):
         ("versions", report_versions),
     ])
 
-def clean_files(reports):
+
+# Iterate through all of the HTML and PDF files, yielding
+# each file that needs processing.
+def iter_files():
+    for report in reports:
+        for version in reversed(report["versions"]):
+            for file in version["formats"]:
+                yield (
+                    report,
+                    version,
+                    file,
+                )
+
+
+def clean_files(reports, all_files):
     # Use a multiprocessing pool to divide the load across processors.
     from multiprocessing import Pool
     pool = Pool()
 
-    # Iterate through all of the HTML and PDF files, yielding
-    # each file that needs processing.
-    def iter_files():
-        for report in reports:
-            for version in reversed(report["versions"]):
-                for file in version["formats"]:
-                    yield (
-                        report,
-                        version,
-                        file,
-                    )
-
-    all_files = set()
     open_tasks = []
+
     for report, version, file in tqdm.tqdm(list(iter_files()), desc="cleaning HTML/PDFs"):
         fn = file["filename"]
         if "ONLY" in os.environ and os.environ["ONLY"] not in fn: continue
 
         # Remmeber that this was a file and also remember any related files we generate from it.
         all_files.add(fn)
-        if fn.endswith(".pdf"): all_files.add(fn.replace(".pdf", ".png"))
         
         # Process the file.
-        in_fn = os.path.join(INCOMING_DIR, fn)
+        in_fn = os.path.join(INCOMING_DIR, version.get("source_dir", ""), fn)
         out_fn = os.path.join(REPORTS_DIR, fn)
 
         # For every HTML/PDF file, if we haven't yet processed it, then process it.
@@ -441,7 +504,7 @@ def clean_files(reports):
         # whole reports/files directory and re-run this.
         if os.path.exists(in_fn) and not os.path.exists(out_fn):
             if fn.endswith(".html"):
-                ar = pool.apply_async(trap_all, [clean_html, in_fn, out_fn, file])
+                ar = pool.apply_async(trap_all, [clean_html, in_fn, out_fn, version, file])
             elif fn.endswith(".pdf"):
                 ar = pool.apply_async(trap_all, [clean_pdf, in_fn, out_fn, version])
             else:
@@ -451,7 +514,9 @@ def clean_files(reports):
         # Link scraped images into the output folder.
         if fn.endswith(".html") and file.get("images"):
             for img in file["images"].values():
-                make_link(os.path.join(INCOMING_DIR, img), os.path.join(REPORTS_DIR, img))
+                img_fn = os.path.join(INCOMING_DIR, version.get("source_dir", ""), img)
+                if not os.path.exists(img_fn): continue # ignore missing images
+                make_link(img_fn, os.path.join(REPORTS_DIR, img))
                 all_files.add(img)
 
         # So that the tqdm progress meter works, wait synchronously
@@ -459,19 +524,36 @@ def clean_files(reports):
         if len(open_tasks) > 20:
             open_tasks.pop(0).wait()
 
+    for report, version, file in tqdm.tqdm(list(iter_files()), desc="generating thumbnails"):
+        fn = file["filename"]
+        if not fn.endswith(".pdf"): continue
+        if "ONLY" in os.environ and os.environ["ONLY"] not in fn: continue
+
+        # Process the file.
+        pdf_fn = os.path.join(REPORTS_DIR, fn)
+        png_fn = pdf_fn.replace(".pdf", ".png")
+
+        # Remmeber that we generated this file.
+        all_files.add(fn.replace(".pdf", ".png"))
+
+        # Since the files have their own SHA1 hash in their file name, we know once we
+        # processed it that it's done.
+        if os.path.exists(png_fn): continue
+
+        ar = pool.apply_async(trap_all, [make_pdf_thumbnail, pdf_fn])
+        open_tasks.append(ar)
+
+        # So that the tqdm progress meter works, wait synchronously
+        # every so often.
+        if len(open_tasks) > 5:
+            open_tasks.pop(0).wait()
+
     # Wait for the last processes to be done.
     pool.close()
     pool.join()
 
-    # Delete orphaned files.
-    if "ONLY" not in os.environ:
-        for fn in glob.glob(os.path.join(REPORTS_DIR, 'files', '*')):
-            if fn[len(REPORTS_DIR)+1:] not in all_files:
-                print("deleting", fn)
-                os.unlink(fn)
 
-
-def clean_html(content_fn, out_fn, file_metadata):
+def clean_html(content_fn, out_fn, report_metadata, file_metadata):
     # Transform the scraped HTML page to the one that we publish:
     #
     # * The HTML file contains the entire HTML page from CRS.gov that the report was
@@ -485,32 +567,37 @@ def clean_html(content_fn, out_fn, file_metadata):
     # * Scrub author phone numbers and email addresses.
 
     with open(content_fn, "rb") as f:
-        content = f.read()
-
-    # Some reports are invalid HTML with a whole doctype and html node inside
-    # the main report container element. See if this is one of those documents.
-    extract_blockquote = (b'<div class="Report"><!DOCTYPE' in content)
+        content_bytes = f.read()
 
     # Parse the page as HTML5. html5lib gives some warnings about malformed
     # content that we don't care about -- hide warnings.
     import warnings
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        content = html5lib.parse(content, treebuilder="lxml")
+        content = html5lib.parse(content_bytes, treebuilder="lxml")
     
-    # Extract the report itself from the whole page.
-    n = content.find(".//*[@class='Report']")
-    if n is None:
-        n = content.find(".//*[@id='Insightsdiv']/*[@class='ReportContent']")
-    if n is None:
-        raise ValueError("HTML page doesn't contain an element that we know to pull body content from")
-    content = n
-
-    if extract_blockquote:
-        content = content.find("{http://www.w3.org/1999/xhtml}blockquote")
-        if content is None:
-            raise ValueError("HTML page didn't have the expected blockquote.")
+    if report_metadata["source"] == "CRSReports.Congress.gov":
+        # Get the body node. Change it to a div.
+        content = content.getroot().find("{http://www.w3.org/1999/xhtml}body")
         content.tag = "div"
+    else:
+        # For HTML scraped from crs.gov...
+
+        # Extract the report itself from the whole page.
+        n = content.find(".//*[@class='Report']")
+        if n is None:
+            n = content.find(".//*[@id='Insightsdiv']/*[@class='ReportContent']")
+        if n is None:
+            raise ValueError("HTML page doesn't contain an element that we know to pull body content from")
+        content = n
+
+        # Some reports are invalid HTML with a whole doctype and html node inside
+        # the main report container element. See if this is one of those documents.
+        if b'<div class="Report"><!DOCTYPE' in content_bytes:
+            content = content.find("{http://www.w3.org/1999/xhtml}blockquote")
+            if content is None:
+                raise ValueError("HTML page didn't have the expected blockquote.")
+            content.tag = "div"
 
     # Remove the XHTML namespace to make processing easier.
     for tag in [content] + content.findall(".//*"):
@@ -667,7 +754,28 @@ def trap_all(func, in_file, *args):
         print("\t", e)
         return
 
+
 def clean_pdf(in_file, out_file, file_metadata):
+    if file_metadata["source"] == "EveryCRSReport.com":
+    	# Perform redaction on non-public PDFs.
+    	redact_pdf(in_file, out_file, file_metadata)
+    elif file_metadata["source"] in (UNT_SOURCE_STRING, "CRSReports.Congress.gov"):
+    	# Don't do any special redaction. Just use the PDF as-is.
+    	make_link(in_file, out_file)
+    else:
+    	raise ValueError(file_metadata["source"])
+
+
+def make_pdf_thumbnail(pdf_file):
+    # Generate a thumbnail image of the PDF.
+    # Note that pdftoppm adds ".png" to the end of the file name.
+    import subprocess
+    subprocess.check_call(['pdftoppm', '-png', '-singlefile',
+                           '-scale-to-x', '600', '-scale-to-y', '-1',
+                           pdf_file, pdf_file.replace(".pdf", "")])
+
+
+def redact_pdf(in_file, out_file, file_metadata):
     from pdf_redactor import redactor, RedactorOptions
     import io, re, subprocess, tempfile, shutil
 
@@ -675,8 +783,9 @@ def clean_pdf(in_file, out_file, file_metadata):
 
     redactor_options = RedactorOptions()
 
+    # Perform redaction on non-public PDFs.
     redactor_options.metadata_filters = {
-        # Copy from report metadata.
+        # Set PDF metadata from report metadata, replacing any existing metadata.
         "Title": [lambda value : file_metadata['title']],
         "Author": [lambda value : "Congressional Research Service, Library of Congress, USA"],
         "CreationDate": [lambda value : file_metadata['date']],
@@ -749,12 +858,6 @@ def clean_pdf(in_file, out_file, file_metadata):
             # error during writing, let's not leave a broken file.
             shutil.copyfile(f2.name, out_file)
 
-    # Generate a thumbnail image of the PDF.
-    # Note that pdftoppm adds ".png" to the end of the file name.
-    subprocess.check_call(['pdftoppm', '-png', '-singlefile',
-                           '-scale-to-x', '600', '-scale-to-y', '-1',
-                           out_file, out_file.replace(".pdf", "")])
-
 def make_link(fn1, fn2):
     if os.path.exists(fn2):
         if os.stat(fn1).st_ino == os.stat(fn2).st_ino:
@@ -776,10 +879,27 @@ if __name__ == "__main__":
     # Make the output directories.
     os.makedirs(os.path.join(REPORTS_DIR, 'reports'), exist_ok=True)
     os.makedirs(os.path.join(REPORTS_DIR, 'files'), exist_ok=True)
-    os.makedirs(os.path.join(REPORTS_DIR, 'diffs'), exist_ok=True)
 
     # Combine and transform the report JSON.
-    reports = write_report_json_files()
+    reports = read_reports_metadata()
+
+    all_files = set()
 
     # Clean/sanitize the HTML and PDF files and generate PNG thumbnails.
-    clean_files(reports)
+    clean_files(reports, all_files)
+
+    # For any report with a PDF but no HTML, convert the PDF to HTML via pdftotext.
+    # Do this after sanitization so that we don't leak redacted information.
+    add_missing_html_formats(reports, all_files)
+
+    # Write out JSON.
+    write_reports_metadata(reports)
+
+    # Delete orphaned files.
+    if "ONLY" not in os.environ:
+        for fn in glob.glob(os.path.join(REPORTS_DIR, 'files', '*')):
+            if fn[len(REPORTS_DIR)+1:] not in all_files:
+                print("deleting", fn)
+                raise ValueError(fn)
+                os.unlink(fn)
+

@@ -1,5 +1,6 @@
 #!/bin/bash
 ./fetch_reports_files.sh
+./scrape_crs_website.py
 ./process_incoming.py
 ./assign_topics.py
 ./compare_versions.py
