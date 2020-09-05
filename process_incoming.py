@@ -94,6 +94,7 @@ def write_report_json_files():
     for fn in glob.glob(os.path.join(REPORTS_DIR, 'reports', '*')):
         if fn not in all_files:
             print("deleting", fn)
+            raise ValueError(fn)
             os.unlink(fn)
 
     return reports

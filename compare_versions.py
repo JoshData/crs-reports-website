@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import os.path
 import glob
 import json
@@ -106,6 +107,8 @@ def create_diff(version1, version2, output_fn):
     with open(output_fn.replace(".html", "-pctchg.txt"), "w") as f:
         f.write(str(percent_change))
 
+
+os.makedirs(os.path.join(REPORTS_DIR, 'diffs'), exist_ok=True)
 
 # Make a comparisons.
 for report, version, file, prev_version in tqdm.tqdm(list(iter_files()), desc="diffing versions"):

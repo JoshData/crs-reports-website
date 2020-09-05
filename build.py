@@ -31,9 +31,12 @@ def parse_dt(s, hasmicro=False, utc=False):
 
 # Load config info --- some are passed into page templates.
 config = { }
-for line in open("credentials.txt"):
-    line = line.strip().split("=", 1) + [""] # ensure at least two items
-    config[line[0]] = line[1]
+try:
+    for line in open("credentials.txt"):
+        line = line.strip().split("=", 1) + [""] # ensure at least two items
+        config[line[0]] = line[1]
+except IOError:
+    pass
 
 # Load the topic areas and make slugs to use for topic page file names.
 topic_areas = { }
@@ -99,6 +102,7 @@ def get_trending_reports(reports):
 
     # Load top accessed reports from analytics-trending.py.
     trending_reports = []
+    if not os.path.exists("trending-reports.txt"): return []
     with open("trending-reports.txt") as f:
         for line in f:
             report_id = line.strip()
@@ -115,6 +119,7 @@ def get_most_viewed_reports(reports):
     # Load top accessed reports from JSON file whose keys are dates
     # in ISO format (not important here) and whose values are stats
     # for the week ending on that date.
+    if not os.path.exists("top-reports-by-week.json"): return []
     with open("top-reports-by-week.json") as f:
         most_accessed_reports = json.load(f)
 
@@ -214,11 +219,12 @@ def generate_static_page(fn, context, output_fn=None):
 
     # Add some global context variables.
 
-    context.update({
-        "ALGOLIA_CLIENT_ID": config["ALGOLIA_CLIENT_ID"],
-        "ALGOLIA_SEARCH_ACCESS_KEY": config["ALGOLIA_SEARCH_ACCESS_KEY"],
-        "ALGOLIA_INDEX_NAME": config["ALGOLIA_INDEX_NAME"],
-    })
+    if "ALGOLIA_CLIENT_ID" in config:
+        context.update({
+            "ALGOLIA_CLIENT_ID": config["ALGOLIA_CLIENT_ID"],
+            "ALGOLIA_SEARCH_ACCESS_KEY": config["ALGOLIA_SEARCH_ACCESS_KEY"],
+            "ALGOLIA_INDEX_NAME": config["ALGOLIA_INDEX_NAME"],
+        })
 
     # Execute the template.
 
