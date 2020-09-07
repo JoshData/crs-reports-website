@@ -20,6 +20,7 @@
 # d) Reports from the University of North Texas archive
 #    are extracted and added into the metadata.
 
+import base64
 import collections
 import datetime
 import glob
@@ -96,7 +97,7 @@ def write_reports_metadata(reports):
     # Delete orphaned files.
     for fn in glob.glob(os.path.join(REPORTS_DIR, 'reports', '*')):
         if fn not in all_files:
-            print("deleting", fn)
+            print("deleting report", fn)
             raise ValueError(fn)
             os.unlink(fn)
 
@@ -140,7 +141,7 @@ def load_crs_dot_gov_reports(reports, withheld_reports):
             # would break JSON serialization. (TODO: Probably want to strip the time from
             # CoverDate and treat it as timezoneless, and probably want to add a UTC indication
             # to _fetched.)
-            ('date', datetime.datetime.strptime(doc['CoverDate'], "%Y-%m-%dT%H:%M:%S").isoformat()),
+            ('date', datetime.datetime.strptime(doc['CoverDate'], "%Y-%m-%dT%H:%M:%S").date().isoformat()),
             ('retrieved', datetime.datetime.strptime(doc['_fetched'], "%Y-%m-%dT%H:%M:%S.%f").isoformat()),
 
             ("title", doc["Title"]), # title
@@ -264,6 +265,7 @@ def load_unt_reports(reports):
                 h = hashlib.sha1()
                 with untarchive.extractfile(pdf_src_fn) as f1:
                     pdf_content = f1.read()
+                if len(pdf_content) == 0: continue # empty file
                 h.update(pdf_content)
                 pdf_content_hash = h.hexdigest()
                 hashcache[pdf_src_fn] = pdf_content_hash # store for next time
@@ -284,7 +286,7 @@ def load_unt_reports(reports):
                     ("source", UNT_SOURCE_STRING),
                     ("sourceLink", "https://digital.library.unt.edu/" + getvalue("meta", "ark") + "/"),
                     ("id", report_version_id),
-                    ("date", report_date + "T00:00:00"),
+                    ("date", report_date),
                     ("retrieved", getvalue("meta", "metadataCreationDate").replace(", ", "T")), # not ISO format originally but this fix seems to work, don't know what time zone though
                     ("title", getvalue("title", "officialtitle", True)),
                     ("summary", getvalue("description", "content", False, False)),
@@ -387,61 +389,86 @@ def load_crsreports_dot_congress_dot_gov_reports(reports):
 
 
 def add_missing_html_formats(reports, all_files):
-    for report, version, file in tqdm.tqdm(list(iter_files()), desc="extracting text"):
+    for report, version, file in tqdm.tqdm(list(iter_files()), desc="extracting HTML"):
             # What formats are available for this version?
             formats = { format["format"]: format["filename"] for format in version["formats"] }
             if "HTML" in formats: continue
             if file["format"] == "PDF" and os.path.exists(os.path.join(REPORTS_DIR, formats["PDF"])):
                 html_fn = file["filename"].replace(".pdf", ".html")
+
                 all_files.add(html_fn)
 
                 # Convert, unless we have it already from the last run of this script.
-                if not os.path.exists(os.path.join(REPORTS_DIR, html_fn)):
-                    # Convert to plain text and then wrap in a preformatted div.
-                    try:
-                      html_fmt = subprocess.check_output(["pdftotext", os.path.join(REPORTS_DIR, formats["PDF"]), "-"]).decode("utf8")
-                    except:
-                      # Skip errors.
-                      continue
-                    html_fmt = "<div style='white-space: pre; word-break: break-all; word-wrap: break-word;'>{}</div>".format(html.escape(html_fmt))
-
-                    # # pdftohtml will also extract images using the given filename as
-                    # # a prefix for the generated files and those paths will also be the SRC attributes
-                    # # in the HTML. Since the HTML will be saved into the same directory as the images
-                    # # (as the PDF file), change to the 'files' directory so that the SRC attributes
-                    # # have no directory path, otherwise they will have an extra path.
+                if not os.path.exists(os.path.join(REPORTS_DIR, html_fn)) and os.path.exists(os.path.join(REPORTS_DIR, formats["PDF"])):
+                    # # Use pdftotext to convert to plain text and then wrap in a preformatted div.
                     # try:
-                    #   html_content = subprocess.check_output([
-                    #     "pdftohtml", "-stdout", "-zoom", "1.75", "-enc", "UTF-8", os.path.basename(pdf_file)
-                    #   ], cwd=BASE_PATH + "/files")
-                    # except subprocess.CalledProcessError:
-                    #     # PDF conversion failed. Maybe there was an error getting the PDF.
-                    #     # Skip for now. We seem to get a lot of zero-length PDF files.
-                    #     return
+                    #   html_fmt = subprocess.check_output(["pdftotext", os.path.join(REPORTS_DIR, formats["PDF"]), "-"]).decode("utf8")
+                    # except:
+                    #   # Skip errors.
+                    #   continue
+                    # html_fmt = "<div style='white-space: pre; word-break: break-all; word-wrap: break-word;'>{}</div>".format(html.escape(html_fmt))
 
-                    # # Just take the body of the HTML file --- trash generated META tags.
-                    # html_content = re.search(b"<body(?:.*?)>(.*)</body>", html_content, re.S).group(1)
+                    # Use pdftohtml to convert to HTML. We'll use check_output to get the HTML returned via STDOUT.
+                    # But pdftohtml will extract images using the given PDF filename as a prefix for the generated
+                    # image files, and those paths will also be the SRC attributes in the HTML. Since it would become
+                    # confusing to additionally track the generated images, we'll store them back inside the HTML
+                    # as data: URLs and delete them from disk.
+                    try:
+                      html_fmt = subprocess.check_output([
+                        "pdftohtml", "-stdout", "-zoom", "1.75", "-enc", "UTF-8", os.path.join(REPORTS_DIR, formats["PDF"])
+                      ])
+                    except subprocess.CalledProcessError:
+                        # PDF conversion failed. Maybe there was an error getting the PDF.
+                        # Skip for now. We seem to get a lot of zero-length PDF files.
+                        return
 
-                    # # Make a mapping of image files from their path in the HTML IMG SRC attributes
-                    # # to their path on disk relative to BASE_PATH.
-                    # image_path_map = { }
-                    # for img_fn in re.findall(b"<img src=\"(.*?)\"", html_content, re.S):
-                    #     img_fn = img_fn.decode("utf8")
-                    #     if os.path.exists(os.path.join(BASE_PATH, 'files', img_fn)):
-                    #         image_path_map[img_fn] = "files/" + img_fn
+                    # Just take the body of the HTML file --- trash generated META tags.
+                    html_fmt = re.search(b"<body(?:.*?)>(.*)</body>", html_fmt, re.S).group(1)
+
+                    # HTML from crsreports.congress.gov PDFs sometimes start with this which we can chop off:
+                    m = re.split(b"\n<b>SUMMARY&#160;</b><br/>\n&#160;<br/>\n<b>&#160;</b><br/>\n" + report["id"].encode("ascii") + b"&#160;<br/>\n", html_fmt)
+                    if len(m) == 2: html_fmt = m[1]
+
+                    # pdftohtml generates non-breaking spaces for nearly all spaces so replace them.
+                    html_fmt = html_fmt.replace(b"&#160;", b" ")
+
+                    # Move the imaeges to inside the HTML.
+                    def make_data_url(m):
+                         # Construct a new data: URL image tag and delete the extracted image file.
+                         img_fn = m.group(1).decode("utf8")
+                         if not os.path.exists(img_fn): return m.group(0) # don't replace --- file is not on disk
+                         with open(img_fn, "rb") as img_file:
+                             im_bytes = img_file.read()
+                         os.unlink(img_fn) # remove the extracted image file
+
+                         # Skip known images --- identify by the hash.
+                         import hashlib
+                         h = hashlib.sha1()
+                         h.update(im_bytes)
+                         if h.hexdigest() in ("e33a534ead5596fcdaf2f395005c893e699393d8", "cf0a915631567be404e4ace0eeaaeae95f84ed62", "d437e97be11016d9c0c419a2ddc53a63423b1216"):
+                           return b"<span" # these are CRS reports header images, zap them out
+
+                         if img_fn.endswith(".jpg"):
+                             image_format = b"jpeg"
+                         elif img_fn.endswith(".png"):
+                             image_format = b"png"
+                         else:
+                             raise ValueError("Unsupported image type: " + img_fn)
+                         url = b"data:image/" + image_format + b";base64," + base64.b64encode(im_bytes)
+                         return b"<img src=\"" + url + b"\""
+                    html_fmt = re.sub(b"<img src=\"(.*?)\"", make_data_url, html_fmt)
 
                     # Save the HTML.
-                    with open(os.path.join(REPORTS_DIR, html_fn), "w") as f:
+                    with open(os.path.join(REPORTS_DIR, html_fn), "wb") as f:
                         f.write(html_fmt)
 
                 # Add to metadata.
                 version["formats"].append(collections.OrderedDict([
                     ("format", "HTML"),
                     ("filename", html_fn),
-                    #("images", image_path_map)
                 ]))
 
-              
+
 def transform_report_metadata(report_number, report_versions):
     # Construct the data structure for a report, given a list of report versions.
     #
@@ -524,6 +551,9 @@ def clean_files(reports, all_files):
         if len(open_tasks) > 20:
             open_tasks.pop(0).wait()
 
+    # Generate a thumbnail for the most recent version of a report. Don't delete thumbnails for
+    # previous versions so always add the png filename to all_files.
+    is_most_recent_version = { }
     for report, version, file in tqdm.tqdm(list(iter_files()), desc="generating thumbnails"):
         fn = file["filename"]
         if not fn.endswith(".pdf"): continue
@@ -535,6 +565,11 @@ def clean_files(reports, all_files):
 
         # Remmeber that we generated this file.
         all_files.add(fn.replace(".pdf", ".png"))
+
+        # Skip if we already have seen the most recent version of this report. The iteration
+        # is reverse-chronological.
+        if report["id"] in is_most_recent_version: continue
+        is_most_recent_version[report["id"]] = True
 
         # Since the files have their own SHA1 hash in their file name, we know once we
         # processed it that it's done.
@@ -899,7 +934,7 @@ if __name__ == "__main__":
     if "ONLY" not in os.environ:
         for fn in glob.glob(os.path.join(REPORTS_DIR, 'files', '*')):
             if fn[len(REPORTS_DIR)+1:] not in all_files:
-                print("deleting", fn)
-                raise ValueError(fn)
+                print("deleting extraneous file", fn)
+                #raise ValueError(fn)
                 os.unlink(fn)
 

@@ -12,7 +12,7 @@ import tqdm
 
 us_eastern_tz = pytz.timezone('America/New_York')
 def parse_dt(s):
-    dt = datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
+    dt = datetime.datetime.strptime(s, "%Y-%m-%d" + ("T%H:%M:%S" if "T" in s else ""))
     return us_eastern_tz.localize(dt)
 
 def update_search_index():

@@ -74,7 +74,7 @@ def make_epub(report_id):
 				title=html.escape(ver["title"]),
 				number=html.escape(report_id),
 				date=re.sub("T.*", "", ver["date"]),
-				nicedate=datetime.datetime.strptime(ver["date"], "%Y-%m-%dT%H:%M:%S").strftime("%x"),
+				nicedate=datetime.datetime.strptime(ver["date"], "%Y-%m-%d" + ("T%H:%M:%S" if "T" in ver["date"] else "")).strftime("%x"),
 			)
 			metadata_f.write(metadata)
 			metadata_f.flush()

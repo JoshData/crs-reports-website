@@ -108,7 +108,7 @@ def fetch_report_version(doc, seq, cover_date):
       pdf_url = rec["formats"][0]["url"]
       pdf_content_hash = rec["formats"][0]["sha1"]
 
-  if not pdf_file:
+  if not pdf_file or not os.path.exists(BASE_PATH + "/" + rec["formats"][0]["filename"]):
     # Download the PDF.
     pdf_url = "https://crsreports.congress.gov/product/pdf/{}/{}/{}".format(
       doc["ProductTypeCode"], doc["ProductNumber"], str(seq))

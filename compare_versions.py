@@ -26,7 +26,7 @@ def iter_files():
         # Don't do diffs on reports whose most recent version
         # is long ago. It's less interesting and takes up a
         # lot of CPU time.
-        if report["versions"][0]["source"] != "EveryCRSReport.com" or report["versions"][0]["date"] < "2016":
+        if report["versions"][0]["date"] < "2017":
             continue
 
         prev_version = None
