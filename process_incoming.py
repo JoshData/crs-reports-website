@@ -417,6 +417,7 @@ def add_missing_html_formats(reports, all_files):
                       html_fmt = subprocess.check_output([
                         "pdftohtml", "-stdout", "-zoom", "1.75", "-enc", "UTF-8", os.path.join(REPORTS_DIR, formats["PDF"])
                       ])
+                      if not html_fmt: return # PDF has no text content
                     except subprocess.CalledProcessError:
                         # PDF conversion failed. Maybe there was an error getting the PDF.
                         # Skip for now. We seem to get a lot of zero-length PDF files.
