@@ -60,6 +60,8 @@ def create_diff(version1, version2, output_fn):
 
         dom = lxml.etree.Element("div")
         for node in fragment:
+            if isinstance(node, str): # dunno why
+                raise ValueError(node)
             dom.append(node)
 
         ## Remove comments - xml_diff can't handle that.

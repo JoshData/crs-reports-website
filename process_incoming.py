@@ -42,6 +42,8 @@ import html5lib
 INCOMING_DIR = 'incoming'
 UNT_ARCHIVE = 'incoming/untl-crs-collection.tar'
 UNT_SOURCE_STRING = "University of North Texas Libraries Government Documents Department"
+FAS_ARCHIVE = '/mnt/disk/data/fas_crs_archive.zip'
+FAS_SOURCE_STRING = "Federation of American Scientists"
 REPORTS_DIR = 'reports'
 
 
@@ -55,8 +57,9 @@ def read_reports_metadata():
     # sources.
     reports = collections.defaultdict(lambda : [])
     load_crs_dot_gov_reports(reports, withheld_reports)
-    load_unt_reports(reports)
     load_crsreports_dot_congress_dot_gov_reports(reports)
+    load_unt_reports(reports)
+    load_fas_reports(reports)
 
     # For each report, sort the report version records in reverse-chronological order, putting
     # the most recent one first. Sort on the report date and on the retrieved date, since the
@@ -387,6 +390,172 @@ def load_crsreports_dot_congress_dot_gov_reports(reports):
             doc["source_dir"] = source_dir
             reports[reportId].append(doc)
 
+
+def load_fas_reports(reports):
+    # Load the reports from the https://sgp.fas.org/crs/ archive.
+    # Although the 5 GB archive has 8900 reports (exactly), there
+    # are actually only 274 reports that we don't have from one of
+    # the other sources.
+
+    # The reports were scraped from the FAS website above on Jan 30, 2022
+    # and were archived to a ZIP file. The following steps were taken:
+    # The website was spidered using `wget -r -L -np https://sgp.fas.org/crs/`
+    # which mirrored the site to a directory named sgp.fas.org. However, 71
+    # reports were located at (www.)fas.org URLs which wget didn't download
+    # with those options and were fetched separately later. The directory
+    # was zipped using `zip -r fas_crs_archive.zip sgp.fas.org`. This function
+    # was then run to locate the missing files (using `grep "wget" | sh`) and
+    # then added to the archive using `zip  -r fas_crs_archive.zip fas.org irp.fas.org www.fas.org`.
+    # The directories sgp.fas.org, fas.org, irp.fas.org, and www.fas.org were then deleted.
+
+    import zipfile
+    import re
+    import os.path
+    import dateutil.parser
+
+    archive_html_encoding = "latin1"
+    still_forming_archive = False
+    num_new_reports = 0
+    num_new_report_versions = 0
+    with zipfile.ZipFile(FAS_ARCHIVE) as archive:
+      with shelve.open(UNT_ARCHIVE+"_hashes.db") as hashcache:        
+        # Scan the main index page for the list of category pages.
+        category_pages = []
+        with archive.open("sgp.fas.org/crs/index.html") as index:
+            category_pages = re.findall("<a href=\"(.*?)\"><h3>(.*?)</h3></a>", index.read().decode(archive_html_encoding))
+
+        # Scan each category page for PDF filenames, report titles, and dates.
+        for fn, category_title in category_pages:
+            fn = "sgp.fas.org/crs/" + fn
+            with archive.open(fn) as subindex:
+                for pdf_fn, report_title, metadata_str in re.findall(r"<li><a href=\"(.*?)\">(.*?)</a>(.*)</li>", subindex.read().decode(archive_html_encoding)):
+                    # Compute an absolute file path for this PDF.
+                    pdf_fn_abs = os.path.normpath(os.path.join(os.path.dirname(fn), pdf_fn))
+
+                    # Some are URLs. Take the host and path as the file path to the PDF.
+                    m = re.match(r"https?://(([a-z]+\.)?fas\.org/.*)", pdf_fn)
+                    if m:
+                        pdf_fn_abs = m.group(1)
+
+                    # Skip some reports that have filenames that don't look like report
+                    # numbers, which we can't put on the website because it messes with
+                    # the URL format (this regex is used in build.py).
+                    if not re.search(r"/[0-9A-Z-]+\.pdf$", "/" + pdf_fn):
+                        #print("Skipping FAS file", pdf_fn_abs)
+                        continue
+
+                    # See if this PDF exists in the ZIP arhive.
+                    try:
+                        pdf_metadata = archive.getinfo(pdf_fn_abs)
+                    except KeyError:
+                        if still_forming_archive and re.match(r"https?://([a-z]+\.)?fas\.org/", pdf_fn):
+                            # This looks like a URL that wasn't in the original
+                            # archive and doesn't exist on disk, so there's an
+                            # error in how the archive was created or we still
+                            # need to fetch these files. This command should be
+                            # run to fetch the file.
+                            print("wget -r {}".format(pdf_fn))
+                        else:
+                            # 36 PDFs are actually just missing from the FAS website
+                            # print("Missing PDF {} in {}".format(pdf_fn_abs, fn))
+                            pass
+                        continue
+
+                    # The filename without the .pdf extension is the original CRS report number.
+                    report_number, _ = os.path.splitext(os.path.basename(pdf_fn))
+
+                    # Extract the date from the extra metadata text.
+                    # There are some typos. Some dates are only month
+                    # and year. Some are missing dates --- we'll skip
+                    # those.
+                    report_date = re.search(r"(January|February|March|April|May|June|July|August|September?|Octobr?er|November|Decembe?r)( \d+,)?\s+\d\d\d\d", metadata_str)
+                    if not report_date:
+                        #print("Missing date for {} in {}: '{}'".format(pdf_fn_abs, fn, metadata_str))
+                        continue
+                    metadata_str = metadata_str.replace(report_date.group(0), '')
+                    report_date = report_date.group(0)
+                    report_date = report_date.replace("Septembe ", "September ")
+                    report_date = report_date.replace("Octobrer", "October")
+                    report_date = report_date.replace("Decembr", "December")
+
+                    report_date = dateutil.parser.parse(report_date).date()
+
+                    # There's some metadata left like report type, but
+                    # some reports have other text here. Unclear if we
+                    # can make use of this.
+                    metadata_str = metadata_str.strip(', ')
+
+                    # Construct a filename that we'll save the PDF as. Use the report number, date, and SHA1 hash
+                    # of the file content as we do with the newer files. Cache the hashes. Don't save the
+                    # file yet since we may skip it if we have this report already.
+                    if pdf_fn_abs in hashcache:
+                        pdf_content_hash = hashcache[pdf_fn_abs]
+                        pdf_content = None
+                    else:
+                        h = hashlib.sha1()
+                        with archive.open(pdf_fn_abs) as f1:
+                            pdf_content = f1.read()
+                        if len(pdf_content) == 0: continue # empty file
+                        h.update(pdf_content)
+                        pdf_content_hash = h.hexdigest()
+                        hashcache[pdf_fn_abs] = pdf_content_hash # store for next time
+                    pdf_fn = "files/" + report_date.isoformat().replace("-", "") + "_" + report_number + "_" + pdf_content_hash + ".pdf"
+
+                    # Get an identifier for this version. The FAS archive only has one
+                    # version for each report, so we'll just add FAS to the report number.
+                    report_version_id = report_number + "_FAS"
+
+                    # Create the metadata record for this report version.
+                    rec = collections.OrderedDict([
+                        ("source", FAS_SOURCE_STRING),
+                        ("sourceLink", "https://sgp.fas.org/crs/"),
+                        ("id", report_version_id),
+                        ("date", report_date.isoformat()),
+                        ("retrieved", datetime.datetime(*pdf_metadata.date_time).isoformat()), # convert ZipInfo.date_time tuple to ISO format
+                        ("title", report_title),
+                        ("summary", None),
+                        ("type", "CRS Report"), # are they all reports?
+                        ("typeId", "REPORT"),
+                        ("active", False),
+                        ("formats", [
+                            collections.OrderedDict([
+                                ("format", "PDF"),
+                                ("filename", pdf_fn),
+                            ])
+                            ]),
+                        ("topics", [ ]),
+                    ])
+
+                    # Don't add this report if we already have this report version
+                    # by checking the report date.
+                    if report_number not in reports:
+                        num_new_reports += 1
+                    is_dup = False
+                    for v in reports[report_number]:
+                        if v["date"][:10] == rec["date"][:10]:
+                            # There's already a document for this date.
+                            # We seem to have duplicates within the UNT archive
+                            # and of course also across collections.
+                            is_dup = True
+                            break
+                    if is_dup:
+                        continue
+
+                    # This report version is new, and also track if this report is new.
+                    num_new_report_versions += 1
+                    
+                    reports[report_number].append(rec)
+
+                    # Save PDF file. We may or may not have read it earlier.
+                    pdf_fn = os.path.join(REPORTS_DIR, pdf_fn)
+                    if not os.path.exists(pdf_fn):
+                        if pdf_content is None:
+                            with archive.open(pdf_fn_abs) as f1:
+                                pdf_content = f1.read()
+                        with open(pdf_fn, "wb") as f:
+                            f.write(pdf_content)
+
+    print("{} new reports and {} new report versions from FAS.".format(num_new_reports, num_new_report_versions))
 
 def add_missing_html_formats(reports, all_files):
     for report, version, file in tqdm.tqdm(list(iter_files()), desc="extracting HTML"):
