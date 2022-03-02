@@ -464,10 +464,15 @@ def load_fas_reports(reports):
                     # The filename without the .pdf extension is the original CRS report number.
                     report_number, _ = os.path.splitext(os.path.basename(pdf_fn))
 
+                    # Use the file modification date as the date the document was retreived.
+                    # Convert ZipInfo.date_time tuple to ISO format.
+                    retrieved_date = datetime.datetime(*pdf_metadata.date_time)
+
                     # Extract the date from the extra metadata text.
                     # There are some typos. Some dates are only month
                     # and year. Some are missing dates --- we'll skip
-                    # those.
+                    # those. Clamp on the retrieved_date since at least
+                    # one report parses to a date far in the future.
                     report_date = re.search(r"(January|February|March|April|May|June|July|August|September?|Octobr?er|November|Decembe?r)( \d+,)?\s+\d\d\d\d", metadata_str)
                     if not report_date:
                         #print("Missing date for {} in {}: '{}'".format(pdf_fn_abs, fn, metadata_str))
@@ -477,8 +482,8 @@ def load_fas_reports(reports):
                     report_date = report_date.replace("Septembe ", "September ")
                     report_date = report_date.replace("Octobrer", "October")
                     report_date = report_date.replace("Decembr", "December")
-
                     report_date = dateutil.parser.parse(report_date).date()
+                    report_date = min(report_date, retrieved_date.date())
 
                     # There's some metadata left like report type, but
                     # some reports have other text here. Unclear if we
@@ -511,7 +516,7 @@ def load_fas_reports(reports):
                         ("sourceLink", "https://sgp.fas.org/crs/"),
                         ("id", report_version_id),
                         ("date", report_date.isoformat()),
-                        ("retrieved", datetime.datetime(*pdf_metadata.date_time).isoformat()), # convert ZipInfo.date_time tuple to ISO format
+                        ("retrieved", retrieved_date.isoformat()),
                         ("title", report_title),
                         ("summary", None),
                         ("type", "CRS Report"), # are they all reports?
