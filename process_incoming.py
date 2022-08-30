@@ -101,7 +101,7 @@ def write_reports_metadata(reports):
     for fn in glob.glob(os.path.join(REPORTS_DIR, 'reports', '*')):
         if fn not in all_files:
             print("deleting report", fn)
-            raise ValueError(fn)
+            raise ValueError("Delete this line to allow deleting files no longer needed.")
             os.unlink(fn)
 
     return reports
@@ -394,8 +394,8 @@ def load_crsreports_dot_congress_dot_gov_reports(reports):
 def load_fas_reports(reports):
     # Load the reports from the https://sgp.fas.org/crs/ archive.
     # Although the 5 GB archive has 8900 reports (exactly), there
-    # are actually only 274 reports that we don't have from one of
-    # the other sources.
+    # are actually only 261 document files (161 reports) that we
+    # don't have from one of the other sources.
 
     # The reports were scraped from the FAS website above on Jan 30, 2022
     # and were archived to a ZIP file. The following steps were taken:
@@ -408,6 +408,31 @@ def load_fas_reports(reports):
     # then added to the archive using `zip  -r fas_crs_archive.zip fas.org irp.fas.org www.fas.org`.
     # The directories sgp.fas.org, fas.org, irp.fas.org, and www.fas.org were then deleted.
 
+    other_report_numbers = {
+        "sgp.fas.org/crs/weapons/transfers76-83.pdf": "84-82F",
+        "sgp.fas.org/crs/weapons/transfers77-84.pdf": "85-86F",
+        "sgp.fas.org/crs/weapons/transfers78-85.pdf": "86-99F",
+        "sgp.fas.org/crs/weapons/transfers79-86.pdf": "87-418F",
+        "sgp.fas.org/crs/weapons/transfers80-87.pdf": "88-352F",
+        "sgp.fas.org/crs/weapons/transfers81-88.pdf": "89-434F",
+        "sgp.fas.org/crs/weapons/transfers82-89.pdf": "90-298F",
+        "sgp.fas.org/crs/weapons/transfers83-90.pdf": "91-578F",
+        "sgp.fas.org/crs/weapons/transfers84-91.pdf": "92-557F",
+        "sgp.fas.org/crs/weapons/transfers85-92.pdf": "93-656F",
+        "sgp.fas.org/crs/weapons/transfers-pcw.pdf": "93-852F",
+        "sgp.fas.org/crs/weapons/transfers86-93.pdf": "94-612F",
+        "sgp.fas.org/crs/weapons/transfers87-94.pdf": "95-862F",
+        "sgp.fas.org/crs/weapons/transfers88-95.pdf": "96-677F",
+        "sgp.fas.org/crs/weapons/transfers89-96.pdf": "97-778F",
+        "sgp.fas.org/crs/weapons/transfers90-97.pdf": "98-647F",
+        "sgp.fas.org/crs/terror/IN10103.html": "IN10103",
+        "sgp.fas.org/crs/natsec/R44039_2015.pdf": "R44039",
+        "sgp.fas.org/crs/weapons/transfers91-98.pdf": "RL30275",
+        "sgp.fas.org/crs/weapons/transfers92-99.pdf": "RL30640",
+        "sgp.fas.org/crs/terror/RL32152.html": "RL32152",
+        "www.fas.org/irp/crs/RS21743.html": "RS21743",
+    }
+
     import zipfile
     import re
     import os.path
@@ -418,7 +443,7 @@ def load_fas_reports(reports):
     num_new_reports = 0
     num_new_report_versions = 0
     with zipfile.ZipFile(FAS_ARCHIVE) as archive:
-      with shelve.open(UNT_ARCHIVE+"_hashes.db") as hashcache:        
+      with shelve.open(UNT_ARCHIVE+"_hashes.db") as hashcache:
         # Scan the main index page for the list of category pages.
         category_pages = []
         with archive.open("sgp.fas.org/crs/index.html") as index:
@@ -437,12 +462,17 @@ def load_fas_reports(reports):
                     if m:
                         pdf_fn_abs = m.group(1)
 
-                    # Skip some reports that have filenames that don't look like report
-                    # numbers, which we can't put on the website because it messes with
-                    # the URL format (this regex is used in build.py).
-                    if not re.search(r"/[0-9A-Z-]+\.pdf$", "/" + pdf_fn):
-                        #print("Skipping FAS file", pdf_fn_abs)
-                        continue
+                    # Most reports have filenames that look like report numbers --- use that.
+                    # It must match the URL format regex used in build.py.
+                    if re.search(r"/[0-9A-Z-]+\.pdf$", "/" + pdf_fn):
+                        # The filename without the .pdf extension is the original CRS report number.
+                        report_number, _ = os.path.splitext(os.path.basename(pdf_fn))
+                    elif pdf_fn_abs in other_report_numbers:
+                        report_number = other_report_numbers[pdf_fn_abs]
+                    else:
+                        # Construct arbitrary report numbers that are stable and hopefully won't collide.
+                        import hashlib
+                        report_number = "ZZZ" + hashlib.sha256(pdf_fn.encode('ascii')).hexdigest().upper()[0:16]
 
                     # See if this PDF exists in the ZIP arhive.
                     try:
@@ -460,9 +490,6 @@ def load_fas_reports(reports):
                             # print("Missing PDF {} in {}".format(pdf_fn_abs, fn))
                             pass
                         continue
-
-                    # The filename without the .pdf extension is the original CRS report number.
-                    report_number, _ = os.path.splitext(os.path.basename(pdf_fn))
 
                     # Use the file modification date as the date the document was retreived.
                     # Convert ZipInfo.date_time tuple to ISO format.
