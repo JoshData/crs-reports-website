@@ -618,11 +618,11 @@ def add_missing_html_formats(reports, all_files):
                       html_fmt = subprocess.check_output([
                         "pdftohtml", "-stdout", "-zoom", "1.75", "-enc", "UTF-8", os.path.join(REPORTS_DIR, formats["PDF"])
                       ])
-                      if not html_fmt: return # PDF has no text content
+                      if not html_fmt: continue # PDF has no text content
                     except subprocess.CalledProcessError:
                         # PDF conversion failed. Maybe there was an error getting the PDF.
                         # Skip for now. We seem to get a lot of zero-length PDF files.
-                        return
+                        continue
 
                     # Just take the body of the HTML file --- trash generated META tags.
                     html_fmt = re.search(b"<body(?:.*?)>(.*)</body>", html_fmt, re.S).group(1)
@@ -1125,7 +1125,7 @@ if __name__ == "__main__":
     # Clean/sanitize the HTML and PDF files and generate PNG thumbnails.
     clean_files(reports, all_files)
 
-    # For any report with a PDF but no HTML, convert the PDF to HTML via pdftotext.
+    # For any report with a PDF but no HTML, convert the PDF to HTML via pdftohtml.
     # Do this after sanitization so that we don't leak redacted information.
     add_missing_html_formats(reports, all_files)
 
