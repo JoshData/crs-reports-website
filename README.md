@@ -21,7 +21,7 @@ Run the build process:
 
 which generates the static files of the website into the `build` directory. To view the generated website, you can run:
 
-	(cd build; python -m SimpleHTTPServer)
+	(cd build; python -m http.server)
 
 and then visit http://localhost:8000/ in your web browser.
 
@@ -175,7 +175,7 @@ Under the hood, this:
 
 * Fetches the latest CRS reports metadata and files from our private archive, saving them into `incoming/`. (`fetch_reports_files.sh`)
 
-* Prepares the raw files for publication, creating new JSON and sanitizing the HTML and PDFs, saving the new files into `reports/`. This step is quite slow, but it will only process new files on each run. If our code changes and the sanitization process has been changed, delete the whole `reports/` directory so it re-processes everything from scratch. (`process_incoming.py`) 
+* Prepares the raw files for publication, creating new JSON and sanitizing the HTML and PDFs, saving the new files into `reports/`. This step is quite slow, but it will only process new files on each run. If our code changes and the sanitization process has been changed, delete the whole `reports/` directory so it re-processes everything from scratch. (`process_incoming.py`)
 
 * Queries Google Analytics for top-accessed reports in the last week.
 
