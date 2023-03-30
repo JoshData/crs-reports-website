@@ -72,7 +72,7 @@ def generate_html(doc: fitz.Document, title: str) -> str:
 
 	# Generate the "front matter" of the html
 	elements = [
-		f"<!DOCTYPE html><html><head><title>{title}<style>div{{line-height:normal}}</style><body>"
+		f"<!DOCTYPE html><html><head><title>{title}</title><body>"
 	]
 	footnotes = ["<h2>Footnotes</h2>"]
 
@@ -85,7 +85,7 @@ def generate_html(doc: fitz.Document, title: str) -> str:
 				# If we're here, that means we've got an image block!
 				# Let's base encode this and append it to the block_html
 				data = base64.b64encode(block["image"]).decode('utf-8')
-				data = f"<img src='data:image/{block['ext']};base64,{data}' width={block['width']} height={block['height']} />"
+				data = f"<img src='data:image/{block['ext']};base64,{data}'/>"
 				elements.append(data)
 
 			else:
@@ -96,6 +96,7 @@ def generate_html(doc: fitz.Document, title: str) -> str:
 
 				# We are being greedy here... to check to see what we're inserting.
 				block_font = [line[0]["font"] for line in [lines["spans"] for lines in block["lines"]]][0]
+				block_color = [line[0]["color"] for line in [lines["spans"] for lines in block["lines"]]][0]
 				block_size = [line[0]["size"] for line in [
 						lines["spans"] for lines in block["lines"]
 					] if line[0]["text"].strip() != ""]
@@ -111,13 +112,17 @@ def generate_html(doc: fitz.Document, title: str) -> str:
 					elements.append(f"<h1>{block_text}</h1>")
 				elif block_size != [] and block_size[0]> 14:	# An h2 header
 					elements.append(f"<h2>{block_text}</h2>")
+				elif block_size != [] and block_font == "GillSansMT-Bold" and block_color == 3369617:
+					heading_span = spans.pop(0)
+					elements.append(f"<h2>{create_text([heading_span])}</h2><div>{create_text(spans)}</div>")
 				elif block_size != [] and block_size[0] <= 9.0 and block_font == "TimesNewRomanPSMT":	# Footnotes
 					footnotes.append(f"<aside class='footnote' epub:type='footnote'>{block_text}</aside>")
 				else:
 					elements.append(f"<div>{block_text}</div>")
 
 	# Put the footnotes at the end and a disclaimer and generate the html
-	elements.append("".join(footnotes))
+	if len(footnotes) > 1:
+		elements.append("".join(footnotes))
 	elements.append("<h1>EveryCRSReport Disclaimer</h1><p>This document was generated for and is published on <a href='https://www.everycrsreport.com/'>EveryCRSReport.com</a>. It required custom software to convert it from a PDF into a readable ePUB. Think this is silly? <a href='https://medium.com/demand-progress/why-i-came-to-believe-crs-reports-should-be-publicly-available-and-built-a-website-to-make-it-77b4b0f6233e#.enxkr4ia9'>So do we!</a>")
 	elements.append("</body></html>")
 	return "".join(elements)
@@ -186,6 +191,7 @@ def make_epub(report_id):
 				"-t", "epub3",
 				"-o", out_fn,
 				"--epub-metadata=" + metadata_f.name,
+				"--css", "epub.css",
 			]
 			if thumbnail_fn:
 				args.extend([
