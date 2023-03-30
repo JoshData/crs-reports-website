@@ -538,6 +538,7 @@ if __name__ == "__main__":
 
     # Ensure the build output directory exists.
     os.makedirs(BUILD_DIR, exist_ok=True)
+    os.makedirs(os.path.join(BUILD_DIR, REPORTS_DIR), exist_ok=True)
 
     # Generate report listing file and an excerpt of the file for the documentation page.
     reports_csv_excerpt = generate_csv_listing()

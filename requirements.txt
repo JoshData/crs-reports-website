@@ -11,3 +11,4 @@ xml_diff
 diff_match_patch_python
 google-api-python-client
 scrapelib
+pymupdf
