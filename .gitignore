@@ -9,3 +9,4 @@ __pycache__
 /trending-reports.txt
 /top-reports-by-week.json
 venv/
+.DS_Store
