@@ -167,7 +167,7 @@ def make_epub(report_id):
 		return
 
 	# Rewrite image paths in HTML.
-	with tempfile.NamedTemporaryFile(mode="wb") as pdf_f:
+	with tempfile.NamedTemporaryFile(mode="wb") as html_f:
 		with tempfile.NamedTemporaryFile(mode="w") as metadata_f:
 			# Generate HTML
 			if pdf_fn:
@@ -184,8 +184,8 @@ def make_epub(report_id):
 					document = b"<html><head><title>" + html.escape(ver["title"]).encode("utf8") + b"</title></head>\n<body>\n" + document
 
 			# Write HTML to temporary file
-			pdf_f.write(document)
-			pdf_f.flush()
+			html_f.write(document)
+			html_f.flush()
 
 			# Construct metadata in a hackish way.
 			metadata = """
@@ -217,7 +217,7 @@ def make_epub(report_id):
 				args.extend([
 					"--epub-cover-image=" + os.path.join(REPORTS_DIR, thumbnail_fn),
 				])
-			args.append(pdf_f.name)
+			args.append(html_f.name)
 			subprocess.check_call(args)
 
 	# Record the data used to generate the epub so we know in the future if we
