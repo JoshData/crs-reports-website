@@ -135,13 +135,22 @@ def make_epub(report_id):
 	with open(os.path.join(REPORTS_DIR, "reports", report_id + ".json")) as f:
 		report = json.load(f)
 
-	# Get current version PDF file.
+	# Get current version.
 	ver = report["versions"][0]
-	pdf_formats = [f for f in ver["formats"] if f["format"] == "PDF"]
-	if len(pdf_formats) == 0: return
-	pdf_fn = os.path.join(REPORTS_DIR, pdf_formats[0]["filename"])
-	if not os.path.exists(pdf_fn): return # we don't have it for some reason
 
+	# Get current version HTML file and use it if not "generated"
+	html_formats = [f for f in ver["formats"] if f["format"] == "HTML"]
+	pdf_fn = None
+	if len(html_formats) != 0 and html_formats[0].get("source"):
+		html_fn = os.path.join(REPORTS_DIR, html_formats[0]["filename"])
+		if not os.path.exists(html_fn): return # we don't have it for some reason
+	else:
+	# Get current version PDF file
+		pdf_formats = [f for f in ver["formats"] if f["format"] == "PDF"]
+		if len(pdf_formats) == 0: return
+		pdf_fn = os.path.join(REPORTS_DIR, pdf_formats[0]["filename"])
+		if not os.path.exists(pdf_fn): return # we don't have it for some reason
+	report_fn = pdf_fn or html_fn
 
 	# Get thumbnail image from corresponding PDF file.
 	thumbnail_fn = None
@@ -153,7 +162,7 @@ def make_epub(report_id):
 
 	# If the epub exists and matches the current content, then no need to
 	# regenerate.
-	src = pdf_fn + "|" + (thumbnail_fn or "")
+	src = report_fn + "|" + (thumbnail_fn or "")
 	if os.path.exists(out_fn + ".src") and open(out_fn + ".src").read() == src:
 		return
 
@@ -161,7 +170,18 @@ def make_epub(report_id):
 	with tempfile.NamedTemporaryFile(mode="wb") as pdf_f:
 		with tempfile.NamedTemporaryFile(mode="w") as metadata_f:
 			# Generate HTML
-			document = bytes(generate_html(fitz.open(pdf_fn), ver["title"]), 'utf-8')
+			if pdf_fn:
+				document = bytes(generate_html(fitz.open(pdf_fn), ver["title"]), 'utf-8')
+			else:
+				with open(html_fn, "rb") as src_html_f:
+					document = src_html_f.read()
+
+					# Replace images.
+					document = re.sub(b"(?<=src=\")/files/.*?(?=\")", lambda m : os.path.join(REPORTS_DIR.encode("ascii"), m.group(0)[1:]), document)
+
+					# Pandoc complains if the HTML file doesn't have a title. It doesn't matter
+					# what it is since we set it explicitly in the epub metadata.
+					document = b"<html><head><title>" + html.escape(ver["title"]).encode("utf8") + b"</title></head>\n<body>\n" + document
 
 			# Write HTML to temporary file
 			pdf_f.write(document)
