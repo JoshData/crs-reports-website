@@ -15,6 +15,7 @@ import sys, os, os.path, glob, shutil, collections, json, datetime, re, hashlib,
 
 import tqdm
 import pytz
+from jinja2.utils import markupsafe
 
 REPORTS_DIR = "reports"
 BUILD_DIR = "build"
@@ -98,7 +99,7 @@ def load_all_reports():
 
 def get_trending_reports(reports):
     # Map IDs to records.
-    reports_by_id = { report["id"]: report for report in reports } 
+    reports_by_id = { report["id"]: report for report in reports }
 
     # Load top accessed reports from analytics-trending.py.
     trending_reports = []
@@ -205,7 +206,7 @@ def generate_static_page(fn, context, output_fn=None):
         value = value.replace("<", r'\u003c')
         value = value.replace(">", r'\u003e') # not necessary but for good measure
         value = value.replace("&", r'\u0026') # not necessary but for good measure        import jinja2
-        return jinja2.Markup(value)
+        return markupsafe.Markup(value)
     env.filters['json'] = as_json
 
     # Load the template.
@@ -324,7 +325,7 @@ def generate_report_page(report):
     for version in reversed(report["versions"]):
         if 'PDF' in version['formats']:
             most_recent_pdf_fn = version['formats']['PDF']['filename']
-        
+
         if 'HTML' in version['formats']:
             fn = version['formats']['HTML']['filename']
 
@@ -537,6 +538,7 @@ if __name__ == "__main__":
 
     # Ensure the build output directory exists.
     os.makedirs(BUILD_DIR, exist_ok=True)
+    os.makedirs(os.path.join(BUILD_DIR, REPORTS_DIR), exist_ok=True)
 
     # Generate report listing file and an excerpt of the file for the documentation page.
     reports_csv_excerpt = generate_csv_listing()
