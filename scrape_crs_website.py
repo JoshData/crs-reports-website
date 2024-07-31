@@ -17,7 +17,7 @@ import subprocess
 
 import scrapelib
 
-BASE_PATH = "incoming/crsreports.congress.gov"
+BASE_PATH = "source-reports/crsreports.congress.gov"
 
 # Create a scraper that automatically throttles our requests
 # so that we don't overload the CRS server.

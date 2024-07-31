@@ -12,7 +12,7 @@ import tqdm
 
 import xml_diff
 
-REPORTS_DIR = "reports"
+REPORTS_DIR = "processed-reports"
 
 # Iterate through all of the HTML files for which a
 # comparison could be generated, yielding the report,
@@ -127,4 +127,3 @@ for report, version, file, prev_version in tqdm.tqdm(list(iter_files()), desc="d
     if not os.path.exists(diff_fn):
         create_diff(os.path.join(REPORTS_DIR, prev_fn), os.path.join(REPORTS_DIR, fn), diff_fn)
 
-        

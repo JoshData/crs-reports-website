@@ -13,8 +13,8 @@
 #
 # Assumptions:
 #
-# * The CRS report metadata and document files are in the 'reports/reports'
-#   and 'reports/files' directories.
+# * The CRS report metadata and document files are in the 'processed-reports/reports'
+#   and 'processed-reports/files' directories.
 # * topic_areas.txt has our pre-set topic areas.
 #
 # Output:
@@ -41,7 +41,7 @@ def load_topic_areas():
     return topic_areas
 
 def assign_topics(topic_areas):
-    for reportfn in tqdm.tqdm(glob.glob("reports/reports/*.json"), "assigning topics"):
+    for reportfn in tqdm.tqdm(glob.glob("processed-reports/reports/*.json"), "assigning topics"):
         assign_topics_to(reportfn, topic_areas)
 
 def assign_topics_to(reportfn, topic_areas):
@@ -55,7 +55,7 @@ def assign_topics_to(reportfn, topic_areas):
     for version in reversed(report["versions"]):
         for versionformat in version["formats"]:
             if versionformat["format"] == "HTML":
-                most_recent_text_fn = os.path.join("reports", versionformat['filename'])
+                most_recent_text_fn = os.path.join("processed-reports", versionformat['filename'])
     if most_recent_text_fn:
         try:
             with open(most_recent_text_fn) as f:

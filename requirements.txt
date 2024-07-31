@@ -1,5 +1,5 @@
 jinja2
-commonmark==0.7.2
+commonmark
 html5lib
 bleach>2.0
 lxml
@@ -8,6 +8,6 @@ feedgen
 pytz
 algoliasearch
 xml_diff
-diff_match_patch_python
+fast-diff-match-patch
 google-api-python-client
 scrapelib

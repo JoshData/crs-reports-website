@@ -4,7 +4,7 @@
 #
 # Assumptions:
 #
-# * The CRS report metadata and document files are in the 'reports/reports' and 'reports/files' directories.
+# * The CRS report metadata and document files are in the 'processed-reports/reports' and 'processed-reports/files' directories.
 #   (This JSON metadata is the transformed metadata that we published, not what we scraped from CRS.)
 #
 # Output:
@@ -16,8 +16,8 @@ import sys, os, os.path, glob, shutil, collections, json, datetime, re, hashlib,
 import tqdm
 import pytz
 
-REPORTS_DIR = "reports"
-BUILD_DIR = "build"
+REPORTS_DIR = "processed-reports"
+BUILD_DIR = "static-site"
 SITE_NAME = "EveryCRSReport.com"
 SITE_URL = "https://www.EveryCRSReport.com"
 
@@ -156,7 +156,7 @@ def index_by_topic(reports):
 
 def generate_static_page(fn, context, output_fn=None):
     # Generates a static HTML page by executing the Jinja2 template.
-    # Given "index.html", it writes out "build/index.html".
+    # Given "index.html", it writes out "BUILD_DIR/index.html".
 
     # Construct the output file name.
 
@@ -188,8 +188,8 @@ def generate_static_page(fn, context, output_fn=None):
             # can pass the rest through a renderer.
             text = text.replace("\n", "\n\n")
         # Turn the text into HTML. This is a fast way to do it that might work nicely.
-        import CommonMark
-        return CommonMark.commonmark(text)
+        import commonmark
+        return commonmark.commonmark(text)
     env.filters['format_summary'] = format_summary
 
     def intcomma(value):
@@ -200,12 +200,12 @@ def generate_static_page(fn, context, output_fn=None):
         # Encode for the <script type="application/ld+json"> tag
         # for Schema.org tags. Embedding JSON within HTML requires
         # escaping "</script>" if it occurs within JSON.
-        import jinja2, json
+        import jinja2, json, markupsafe
         value = json.dumps(value, sort_keys=True)
         value = value.replace("<", r'\u003c')
         value = value.replace(">", r'\u003e') # not necessary but for good measure
-        value = value.replace("&", r'\u0026') # not necessary but for good measure        import jinja2
-        return jinja2.Markup(value)
+        value = value.replace("&", r'\u0026') # not necessary but for good measure
+        return markupsafe.Markup(value)
     env.filters['json'] = as_json
 
     # Load the template.
@@ -250,7 +250,7 @@ def generate_static_pages(context):
 
 
 def copy_static_assets():
-    # Copy the static assets from the "static" directory to "build/static".
+    # Copy the static assets from the "static" directory to "BUILD_DIR/static".
 
     #print("static assets...")
 
@@ -455,7 +455,7 @@ def create_feed(reports, title, fn):
         fe.title(version["title"][:300])
         fe.description(description=(version["summary"] or "")[:600])
         fe.link(href=SITE_URL + "/" + get_report_url_path(report, '.html'))
-        fe.pubdate(version["date"])
+        fe.pubDate(version["date"])
     feed.rss_file(os.path.join(BUILD_DIR, fn))
 
 def create_sitemap(reports):
@@ -466,6 +466,7 @@ def create_sitemap(reports):
             "xmlns": "http://www.sitemaps.org/schemas/sitemap/0.9"
         })
     root.text = "\n  " # pretty
+    node = None
     for report in reports:
         node = ET.SubElement(root, "url")
         node.text = "\n    " # pretty
@@ -478,7 +479,7 @@ def create_sitemap(reports):
         n = ET.SubElement(node, "lastmod")
         n.text = report["versions"][0]["date"].date().isoformat()
         n.tail = "\n  " # pretty
-    node.tail = "\n" # change the pretty whitespace of the last child
+    if node is not None: node.tail = "\n" # change the pretty whitespace of the last child
 
     # Serialize
     xml = ET.tostring(root, encoding='utf8')
@@ -509,7 +510,7 @@ def generate_csv_listing():
     # Read back the top lines -- we'll show the excerpt on the
     # developer docs page.
     reports_csv_excerpt = ""
-    for line in open("build/reports.csv"):
+    for line in open(BUILD_DIR + "/reports.csv"):
         reports_csv_excerpt += line
         if len(reports_csv_excerpt) > 512: break
     return reports_csv_excerpt
@@ -522,11 +523,15 @@ def make_link(src, dst):
     if os.path.lexists(dst):
         if src and os.lstat(src).st_ino == os.lstat(dst).st_ino:
             return # files are already hardlinked
+        if src and os.lstat(src).st_ino == os.lstat(os.path.realpath(dst)).st_ino:
+            return # files are already symlinked
         os.unlink(dst) # destination exists and is not a hardlink
     if src:
-       os.link(src, dst)
-       # if crossing filesystem boundaries, use softlinks:
-       # os.symlink(os.path.abspath(src), dst)
+       if os.lstat(src).st_dev == os.lstat(os.path.dirname(dst)).st_dev:
+           os.link(src, dst) # hardlink
+       else:
+           # if crossing filesystem boundaries, use symlinks:
+           os.symlink(os.path.abspath(src), dst)
 
 # MAIN
 
@@ -535,14 +540,15 @@ if __name__ == "__main__":
     # Load all of the report metadata.
     reports = load_all_reports()
 
-    # Ensure the build output directory exists.
-    os.makedirs(BUILD_DIR, exist_ok=True)
+    # Ensure the build output directory and its reports subdirectory exists.
+    os.makedirs(BUILD_DIR + "/reports", exist_ok=True)
 
     # Generate report listing file and an excerpt of the file for the documentation page.
     reports_csv_excerpt = generate_csv_listing()
 
     # Generate report pages.
     for report in tqdm.tqdm(reports, desc="report pages"):
+        if report["id"] in ("RL34185", "RL31484"): continue # a hard crash occurs somewhere
         generate_report_page(report)
 
     # Delete any generated report files for reports we are no longer publishing.
@@ -571,9 +577,9 @@ if __name__ == "__main__":
 
     # Sym-link the reports/files directory into the build directory since we can just
     # expose these paths directly.
-    if not os.path.exists("build/files"):
+    if not os.path.exists(BUILD_DIR + "/files"):
         print("Creating build/files.")
-        os.symlink("../reports/files", "build/files")
+        os.symlink(os.path.abspath(REPORTS_DIR) + "/files", BUILD_DIR + "/files")
 
     # Create the main feed.
     print("Feed and sitemap...")

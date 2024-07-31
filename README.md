@@ -21,102 +21,12 @@ Run the build process:
 
 which generates the static files of the website into the `build` directory. To view the generated website, you can run:
 
-	(cd build; python -m SimpleHTTPServer)
+	(cd static-site; python -m http.server)
 
 and then visit http://localhost:8000/ in your web browser.
 
 
 ## Production Site Configuration
-
-### AWS Resources
-
-The website is driven by several resources in Amazon Web Services.
-
-1) The AWS S3 bucket which holds the private archive of CRS reports.
-
-2) A cheap server running in EC2 which fetches the reports from the private archive, generates the static pages of the website, and uploads the website to (3). Nothing permanent is kept on this server.
-
-3) A second AWS S3 bucket which holds the public, static files of the website. Although an S3 bucket _can_ serve the website directly, it cannot do so with HTTPS, so we don't use that. The bucket itself is therefore not public.
-
-4) An AWS CloudFront "distribution", whose "origin" is configured to be the AWS S3 bucket (3). The CloudFront "distribution" makes the website available to the world on the web. The distribution is set with the following options: a) 'Restrict Bucket Access', b) a custom cache policy and a default TTL of about 14400 (4 hours) so that the site updates eventually after new files are published, and c) Amazon Certificate Manager (ACM) is used to provision a SSL certificate for the HTTPS site.
-
-5) An IAM (Identity and Access Management) account which has read-only access to (1) and read/write access to (3). The IAM account's credentials are stored on the server (2). We use an IAM account and not a master AWS account's credentials so that we only work with the permissions we need.
-
-The DNS for the website's domain name is configured with a CNAME that points to the CloudFront distribution. The non-"www." domain name is parked somewhere with a redirect to the "www." domain name.
-
-### Security Configuration
-
-The IAM account is given read-only access to the private reports archive by adding the following bucket policy to the private reports archive S3 bucket, under Properties > Permissions > Add bucket policy. Replace `BUCKET_NAME_HERE` with the _private CRS reports archive bucket name_ and `IAM_USER_ARN_HERE` with the IAM user ARN in the four places they appear:
-
-	{
-		"Id": "Policy1471614193686",
-		"Version": "2012-10-17",
-		"Statement": [
-			{
-				"Sid": "Stmt1471614186000",
-				"Action": [
-					"s3:ListBucket"
-				],
-				"Effect": "Allow",
-				"Resource": "arn:aws:s3:::BUCKET_NAME_HERE",
-				"Principal": {
-					"AWS": [
-						"IAM_USER_ARN_HERE"
-					]
-				}
-			},
-			{
-				"Sid": "Stmt1471614186000",
-				"Action": [
-					"s3:GetObject"
-				],
-				"Effect": "Allow",
-				"Resource": "arn:aws:s3:::BUCKET_NAME_HERE/*",
-				"Principal": {
-					"AWS": [
-						"IAM_USER_ARN_HERE"
-					]
-				}
-			}
-		]
-	}
-
-The IAM account is given full access to the public website bucket in Properties > Permissions > Add bucket policy. Replace `BUCKET_NAME_HERE` with the _public website bucket name_ and `IAM_USER_ARN_HERE` with the IAM user ARN in the four places they appear. **If you already created the CloudFront distribution, this bucket will already have an access policy granting CloudFront access. You will have to merge the policies.**
-
-	{
-	  "Id": "Policy1471615487213",
-	  "Version": "2012-10-17",
-	  "Statement": [
-	    {
-	      "Sid": "Stmt1471615480136",
-	      "Action": [
-	        "s3:ListBucket"
-	      ],
-	      "Effect": "Allow",
-	      "Resource": "arn:aws:s3:::BUCKET_NAME_HERE",
-	      "Principal": {
-	        "AWS": [
-	          "IAM_USER_ARN_HERE"
-	        ]
-	      }
-	    },
-	    {
-	      "Sid": "Stmt1471615480136",
-	      "Action": [
-	        "s3:DeleteObject",
-	        "s3:GetObject",
-	        "s3:PutObject"
-	      ],
-	      "Effect": "Allow",
-	      "Resource": "arn:aws:s3:::BUCKET_NAME_HERE/*",
-	      "Principal": {
-	        "AWS": [
-	          "IAM_USER_ARN_HERE"
-	        ]
-	      }
-	    }
-	  ]
-	}
 
 ### Algolia search account
 
@@ -127,43 +37,48 @@ We use Algolia.com as a hosted facted search service index service.
 
 ### Server Preparation
 
-This section prepares a Linux machine that is ready to fetch the CRS reports from the private location and turn them into the public website. The machine need not be running all the time, but without it the website will not be updated.
+Install packages and make a virtual environment (based on Ubuntu 22.04):
 
-On a new Linux machine (instructions here for an AWS Amazon Linux instance):
+	sudo apt install python3-virtualenv unzip pandoc
+	virtualenv venv
+	source venv/bin/activate
+	pip install -r requirements.txt
 
-	sudo yum install python34-pip gcc libxml2-devel libxslt-devel python34-devel unzip poppler-utils libffi-devel openssl-devel
-	sudo pip install s3cmd
-	sudo pip-3.4 install -r requirements.txt
+Get the PDF redaction script, install its dependencies, and install QPDF:
 
-Get the PDF redaction script, install its dependencies, and install QPDF, which on Amazon Linux must unfortunately be compiled from source:
+	mkdir lib
+	cd lib
 
 	wget https://raw.githubusercontent.com/JoshData/pdf-redactor/master/pdf_redactor.py
-	pip3 install $(curl https://raw.githubusercontent.com/JoshData/pdf-redactor/master/requirements.txt)
+	pip install $(curl https://raw.githubusercontent.com/JoshData/pdf-redactor/master/requirements.txt)
 
-	sudo yum install gcc-c++ libjpeg-devel
-	wget https://github.com/qpdf/qpdf/releases/download/release-qpdf-10.0.1/qpdf-10.0.1.tar.gz
-	tar -zxf qpdf-10.0.1.tar.gz
-	(cd qpdf-10.0.1/ && ./configure --disable-crypto-openssl && make && sudo make install)
+	wget https://github.com/qpdf/qpdf/releases/download/v11.9.1/qpdf-11.9.1-bin-linux-x86_64.zip
+	unzip -d qpdf qpdf-11.9.1-bin-linux-x86_64.zip
 
-Get pandoc from https://pandoc.org/installing.html#linux.
+	cd ..
 
-	wget https://github.com/jgm/pandoc/releases/download/2.0.2/pandoc-2.0.2-linux.tar.gz
-	tar -zxf pandoc-2.0.2-linux.tar.gz
-	sudo mv pandoc-2.0.2/bin/pandoc /usr/local/bin/
-	rm -rf pandoc-2.0.2*
+Create a new file named `secrets/credentials.txt`. And add the Algolia account information.
 
-Create a new file named `credentials.txt` and put in it the AWS IAM user's access keys that have access to 1) the private S3 bucket holding the CRS reports archive and 2) the public S3 bucket holding the website content. Also set the names of the S3 buckets. And add the Algolia account information.
-
-	AWS_ACCESS_KEY_ID=...
-	AWS_SECRET_ACCESS_KEY=...
-	AWS_INCOMING_S3_BUCKET=...
-	AWS_WEBSITE_S3_BUCKET=...
 	ALGOLIA_CLIENT_ID=...
 	ALGOLIA_ADMIN_ACCESS_KEY=...
 	ALGOLIA_SEARCH_ACCESS_KEY=...
 	ALGOLIA_INDEX_NAME=...
 
-Create a new file named `credentials.google_service_account.json` and place a Google API System Account's JSON credentials in the file. The credentials should have access to the EveryCRSReport.com Google Analytics view.
+Create a new file named `secrets/credentials.google_service_account.json` and place a Google API System Account's JSON credentials in the file. The credentials should have access to the EveryCRSReport.com Google Analytics view.
+
+Create symlinks here for where the source report files are stored and where the static site will be built into:
+
+	ln -s /mnt/volume_nyc1_01/source-reports/ .
+	ln -s /mnt/volume_nyc1_02/processed-reports/ .
+	ln -s /mnt/volume_nyc1_01/static-site/ .
+
+Set up nginx & certbot:
+
+	apt install nginx certbot python3-certbot-nginx
+	rmdir /var/www/html # clear it out first
+	ln -s /mnt/volume_nyc1_01/static-site/ /var/www/html
+	chmod a+rx /home/user/
+	certbot -d www.everycrsreport.com
 
 ### Running the site generator
 
@@ -173,13 +88,10 @@ To generate & update the website, run:
 
 Under the hood, this:
 
-* Fetches the latest CRS reports metadata and files from our private archive, saving them into `incoming/`. (`fetch_reports_files.sh`)
-
 * Prepares the raw files for publication, creating new JSON and sanitizing the HTML and PDFs, saving the new files into `reports/`. This step is quite slow, but it will only process new files on each run. If our code changes and the sanitization process has been changed, delete the whole `reports/` directory so it re-processes everything from scratch. (`process_incoming.py`) 
 
 * Queries Google Analytics for top-accessed reports in the last week.
 
-* Generates the complete website in the `build/` directory. (`build.py`)
+* Generates the complete website in the `static-site/` directory. (`build.py`)
 
-* Uploads the built site to the public S3 bucket (which is served by the CloudFront distribution). (`publish.sh`)
 

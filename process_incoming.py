@@ -39,12 +39,12 @@ import bleach
 import lxml.etree
 import html5lib
 
-INCOMING_DIR = 'incoming'
-UNT_ARCHIVE = 'incoming/untl-crs-collection.tar'
+INCOMING_DIR = 'source-reports'
+UNT_ARCHIVE = 'source-reports/untl-crs-collection.tar'
 UNT_SOURCE_STRING = "University of North Texas Libraries Government Documents Department"
-FAS_ARCHIVE = '/mnt/disk/data/fas_crs_archive.zip'
+FAS_ARCHIVE = 'source-reports/fas_crs_archive.zip'
 FAS_SOURCE_STRING = "Federation of American Scientists"
-REPORTS_DIR = 'reports'
+REPORTS_DIR = 'processed-reports'
 
 
 def read_reports_metadata():
@@ -1041,9 +1041,9 @@ def redact_pdf(in_file, out_file, file_metadata):
     # Redact phone numbers and email addresses.
     # See the notes on the regular expressions above for the HTML scrubber.
     redactor_options.content_filters = [
-        (re.compile("((^|[^\d])7-)\d{4}"), lambda m : m.group(1) + "...."), # use a symbol likely to be available
-        (re.compile("\(\d\d\d\) \d\d\d-\d\d\d\d"), lambda m : "[redacted]"), # use a symbol likely to be available
-        (re.compile("[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+(@crs.?(loc|gov))"), lambda m : ("[redacted]" + m.group(1))),
+        (re.compile(r"((^|[^\d])7-)\d{4}"), lambda m : m.group(1) + "...."), # use a symbol likely to be available
+        (re.compile(r"\(\d\d\d\) \d\d\d-\d\d\d\d"), lambda m : "[redacted]"), # use a symbol likely to be available
+        (re.compile(r"[a-zA-Z0-9_!#\$%&\'\*\+\-/=\?\^`\{\|\}~]+(@crs.?(loc|gov))"), lambda m : ("[redacted]" + m.group(1))),
     ]
 
     # Avoid inserting ?'s and spaces.

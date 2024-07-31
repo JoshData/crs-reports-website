@@ -13,7 +13,7 @@ import datetime
 
 import tqdm
 
-REPORTS_DIR = "reports"
+REPORTS_DIR = "processed-reports"
 
 def make_epub(report_id):
 	# Generate output filename.
