@@ -39,6 +39,8 @@ import bleach
 import lxml.etree
 import html5lib
 
+from utils import make_link
+
 INCOMING_DIR = 'source-reports'
 UNT_ARCHIVE = 'source-reports/untl-crs-collection.tar'
 UNT_SOURCE_STRING = "University of North Texas Libraries Government Documents Department"
@@ -616,7 +618,7 @@ def add_missing_html_formats(reports, all_files):
                     # as data: URLs and delete them from disk.
                     try:
                       html_fmt = subprocess.check_output([
-                        "pdftohtml", "-stdout", "-zoom", "1.75", "-enc", "UTF-8", os.path.join(REPORTS_DIR, formats["PDF"])
+                        "pdftohtml", "-stdout", "-zoom", "1.75", "-enc", "UTF-8", "-nodrm", os.path.join(REPORTS_DIR, formats["PDF"])
                       ])
                       if not html_fmt: continue # PDF has no text content
                     except subprocess.CalledProcessError:
@@ -1094,21 +1096,6 @@ def redact_pdf(in_file, out_file, file_metadata):
             # out_file in the previous qpdf step in case of errors. If there's an
             # error during writing, let's not leave a broken file.
             shutil.copyfile(f2.name, out_file)
-
-def make_link(fn1, fn2):
-    if os.path.exists(fn2):
-        if os.stat(fn1).st_ino == os.stat(fn2).st_ino:
-            # Files are already hard links.
-            return
-        #elif os.islink(fn2) and os.readlink(fn2) == os.path.abspath(fn1):
-        #    # File is already a symlink to the right place.
-        #    return
-        else:
-            # File links to the wrong place. Replace it.
-            os.unlink(fn2)
-    os.link(fn1, fn2)
-    # if crossing file-system boundaries:
-    #os.symlink(os.path.abspath(fn1), fn2)
 
 # MAIN
 

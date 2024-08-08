@@ -1,4 +1,5 @@
 #!/bin/bash
+source venv/bin/activate
 ./scrape_crs_website.py
 ./process_incoming.py
 ./assign_topics.py

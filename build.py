@@ -11,28 +11,21 @@
 #
 # * A static website in ./build.
 
-import sys, os, os.path, glob, shutil, collections, json, datetime, re, hashlib, csv, subprocess, html
+import sys, os, os.path, glob, shutil, collections, json, re, hashlib, csv, subprocess, html
 
 import tqdm
-import pytz
+
+from utils import make_link, parse_dt
 
 REPORTS_DIR = "processed-reports"
 BUILD_DIR = "static-site"
 SITE_NAME = "EveryCRSReport.com"
 SITE_URL = "https://www.EveryCRSReport.com"
 
-us_eastern_tz = pytz.timezone('America/New_York')
-utc_tz = pytz.timezone("UTC")
-
-
-def parse_dt(s, hasmicro=False, utc=False):
-    dt = datetime.datetime.strptime(s, "%Y-%m-%d" + ("T%H:%M:%S" if "T" in s else "") + (".%f" if hasmicro else ""))
-    return (utc_tz if utc else us_eastern_tz).localize(dt)
-
 # Load config info --- some are passed into page templates.
 config = { }
 try:
-    for line in open("credentials.txt"):
+    for line in open("secrets/credentials.txt"):
         line = line.strip().split("=", 1) + [""] # ensure at least two items
         config[line[0]] = line[1]
 except IOError:
@@ -515,23 +508,6 @@ def generate_csv_listing():
         if len(reports_csv_excerpt) > 512: break
     return reports_csv_excerpt
 
-def make_link(src, dst):
-    # If the destination exists (possibly a broken symlink) then delete
-    # it before creating the hard link, unless it's a hard link to the
-    # source already. Use l* functions so this doesn't break with broken
-    # symlinks (exists and stat error out on broken symlinks).
-    if os.path.lexists(dst):
-        if src and os.lstat(src).st_ino == os.lstat(dst).st_ino:
-            return # files are already hardlinked
-        if src and os.lstat(src).st_ino == os.lstat(os.path.realpath(dst)).st_ino:
-            return # files are already symlinked
-        os.unlink(dst) # destination exists and is not a hardlink
-    if src:
-       if os.lstat(src).st_dev == os.lstat(os.path.dirname(dst)).st_dev:
-           os.link(src, dst) # hardlink
-       else:
-           # if crossing filesystem boundaries, use symlinks:
-           os.symlink(os.path.abspath(src), dst)
 
 # MAIN
 
@@ -548,7 +524,7 @@ if __name__ == "__main__":
 
     # Generate report pages.
     for report in tqdm.tqdm(reports, desc="report pages"):
-        if report["id"] in ("RL34185", "RL31484"): continue # a hard crash occurs somewhere
+        if report["id"] in ("RL34185", "RL31484", "ZZZA00CA4C7AEA8FBFA"): continue # a hard crash occurs somewhere
         generate_report_page(report)
 
     # Delete any generated report files for reports we are no longer publishing.

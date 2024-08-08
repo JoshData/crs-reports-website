@@ -4,12 +4,7 @@ import datetime
 import json
 import glob
 
-# helper function to parse report dates
-import pytz
-us_eastern_tz = pytz.timezone('America/New_York')
-def parse_dt(s):
-    dt = datetime.datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
-    return us_eastern_tz.localize(dt)
+from utils import parse_tz
 
 # Get the first and last version date of each report.
 reports = []

@@ -25,6 +25,7 @@ scraper = scrapelib.Scraper(
   requests_per_minute=35,
   retry_attempts=2,
   retry_wait_seconds=10)
+scraper.headers.update({'User-Agent': 'EveryCRSReport.com'})
 
 ProdTypeDisplayName = {
   "R": "CRS Report",

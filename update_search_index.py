@@ -10,15 +10,13 @@ import lxml.etree
 import pytz
 import tqdm
 
-us_eastern_tz = pytz.timezone('America/New_York')
-def parse_dt(s):
-    dt = datetime.datetime.strptime(s, "%Y-%m-%d" + ("T%H:%M:%S" if "T" in s else ""))
-    return us_eastern_tz.localize(dt)
+from utils import parse_dt
+
 
 def update_search_index():
     # Load credentials.
     config = { }
-    for line in open("credentials.txt"):
+    for line in open("secrets/credentials.txt"):
         line = line.strip().split("=", 1) + [""] # ensure at least two items
         config[line[0]] = line[1]
 
