@@ -12,6 +12,9 @@ import tqdm
 
 from utils import parse_dt
 
+REPORTS_DIR = "processed-reports"
+INDEX_CACHE_FN = "/mnt/volume_nyc1_02/algolia-index-cache.json"
+
 
 def update_search_index():
     # Load credentials.
@@ -21,8 +24,8 @@ def update_search_index():
         config[line[0]] = line[1]
 
     # Initialize client.
-    from algoliasearch import algoliasearch
-    client = algoliasearch.Client(config["ALGOLIA_CLIENT_ID"], config["ALGOLIA_ADMIN_ACCESS_KEY"])
+    from algoliasearch.search_client import SearchClient
+    client = SearchClient.create(config["ALGOLIA_CLIENT_ID"], config["ALGOLIA_ADMIN_ACCESS_KEY"])
     index = client.init_index(config["ALGOLIA_INDEX_NAME"])
     index.set_settings({
         "searchableAttributes": ["title", "summary", "text"],
@@ -33,29 +36,34 @@ def update_search_index():
 
     # Remember docs we've already pushed to the index.
     cache = { }
-    if os.path.exists(".index-cache.json"):
-        cache = json.load(open(".index-cache.json"))
+    if os.path.exists(INDEX_CACHE_FN):
+        cache = json.load(open(INDEX_CACHE_FN))
 
-    # Start pushing records.
-    for reportfn in tqdm.tqdm(glob.glob("reports/reports/*.json"), "updating search index"):
+    # Scan for reports that need to be updated.
+    reports = []
+    for reportfn in tqdm.tqdm(glob.glob(REPORTS_DIR + "/reports/*.json"), "checking for stale search index objects"):
         # Did we already do this file? Compute a hash of the report JSON
         # (which includes the document hash) and use it as a cache key.
+        cache_key = reportfn.replace(REPORTS_DIR, "reports") # old path
         hasher = hashlib.sha1()
         with open(reportfn, 'rb') as f:
             hasher.update(f.read())
-        key = hasher.hexdigest()
-        if cache.get(reportfn) == key: continue
+        cache_value = hasher.hexdigest()
+        if cache.get(cache_key) == cache_value: continue
 
+        reports.append((reportfn, cache_key, cache_value))
+
+    # Update index.
+    for reportfn, cache_key, cache_value in tqdm.tqdm(reports, "updating search index"):
         # Push to index.
         with open(reportfn) as f:
             report = json.load(f)
             update_search_index_for(report, index)
 
-        # Save to cache that we did this file.
-        cache[reportfn] = key
-
-        # Update cache.
-        json.dump(cache, open(".index-cache.json", "w"))
+        # Save to cache that we did this file & update cache (using a two-stage save).
+        cache[cache_key] = cache_value
+        json.dump(cache, open(INDEX_CACHE_FN + ".1", "w"))
+        os.rename(INDEX_CACHE_FN + ".1", INDEX_CACHE_FN)
 
 def update_search_index_for(report, index):
     # Find the most recent HTML text, which we'll use for indexing.
@@ -78,7 +86,7 @@ def update_search_index_for(report, index):
                 # Convert to plain text.
                 text = lxml.etree.tostring(dom, method='text', encoding=str)
         except (FileNotFoundError, ValueError):
-            print("Missing/invalid HTML", report["number"], version["date"])
+            pass # print("Missing/invalid HTML", report["number"], version["date"])
 
     # There's a quota on the size of the index_data, 10KB minified JSON
     # according to the docs, although we seem to be able to push more
@@ -109,7 +117,7 @@ def update_search_index_for(report, index):
     #print(json.dumps(index_data, indent=2))
     #print()
 
-    index.add_object(index_data, index_data["objectID"])
+    index.save_object(index_data)
 
 if __name__ == "__main__":
     update_search_index()
