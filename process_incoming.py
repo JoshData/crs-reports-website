@@ -603,75 +603,93 @@ def add_missing_html_formats(reports, all_files):
 
                 # Convert, unless we have it already from the last run of this script.
                 if not os.path.exists(os.path.join(REPORTS_DIR, html_fn)) and os.path.exists(os.path.join(REPORTS_DIR, formats["PDF"])):
-                    # # Use pdftotext to convert to plain text and then wrap in a preformatted div.
-                    # try:
-                    #   html_fmt = subprocess.check_output(["pdftotext", os.path.join(REPORTS_DIR, formats["PDF"]), "-"]).decode("utf8")
-                    # except:
-                    #   # Skip errors.
-                    #   continue
-                    # html_fmt = "<div style='white-space: pre; word-break: break-all; word-wrap: break-word;'>{}</div>".format(html.escape(html_fmt))
-
-                    # Use pdftohtml to convert to HTML. We'll use check_output to get the HTML returned via STDOUT.
-                    # But pdftohtml will extract images using the given PDF filename as a prefix for the generated
-                    # image files, and those paths will also be the SRC attributes in the HTML. Since it would become
-                    # confusing to additionally track the generated images, we'll store them back inside the HTML
-                    # as data: URLs and delete them from disk.
                     try:
-                      html_fmt = subprocess.check_output([
-                        "pdftohtml", "-stdout", "-zoom", "1.75", "-enc", "UTF-8", "-nodrm", os.path.join(REPORTS_DIR, formats["PDF"])
-                      ])
-                      if not html_fmt: continue # PDF has no text content
-                    except subprocess.CalledProcessError:
-                        # PDF conversion failed. Maybe there was an error getting the PDF.
-                        # Skip for now. We seem to get a lot of zero-length PDF files.
-                        continue
-
-                    # Just take the body of the HTML file --- trash generated META tags.
-                    html_fmt = re.search(b"<body(?:.*?)>(.*)</body>", html_fmt, re.S).group(1)
-
-                    # HTML from crsreports.congress.gov PDFs sometimes start with this which we can chop off:
-                    m = re.split(b"\n<b>SUMMARY&#160;</b><br/>\n&#160;<br/>\n<b>&#160;</b><br/>\n" + report["id"].encode("ascii") + b"&#160;<br/>\n", html_fmt)
-                    if len(m) == 2: html_fmt = m[1]
-
-                    # pdftohtml generates non-breaking spaces for nearly all spaces so replace them.
-                    html_fmt = html_fmt.replace(b"&#160;", b" ")
-
-                    # Move the imaeges to inside the HTML.
-                    def make_data_url(m):
-                         # Construct a new data: URL image tag and delete the extracted image file.
-                         img_fn = m.group(1).decode("utf8")
-                         if not os.path.exists(img_fn): return m.group(0) # don't replace --- file is not on disk
-                         with open(img_fn, "rb") as img_file:
-                             im_bytes = img_file.read()
-                         os.unlink(img_fn) # remove the extracted image file
-
-                         # Skip known images --- identify by the hash.
-                         import hashlib
-                         h = hashlib.sha1()
-                         h.update(im_bytes)
-                         if h.hexdigest() in ("e33a534ead5596fcdaf2f395005c893e699393d8", "cf0a915631567be404e4ace0eeaaeae95f84ed62", "d437e97be11016d9c0c419a2ddc53a63423b1216"):
-                           return b"<span" # these are CRS reports header images, zap them out
-
-                         if img_fn.endswith(".jpg"):
-                             image_format = b"jpeg"
-                         elif img_fn.endswith(".png"):
-                             image_format = b"png"
-                         else:
-                             raise ValueError("Unsupported image type: " + img_fn)
-                         url = b"data:image/" + image_format + b";base64," + base64.b64encode(im_bytes)
-                         return b"<img src=\"" + url + b"\""
-                    html_fmt = re.sub(b"<img src=\"(.*?)\"", make_data_url, html_fmt)
+                        html_fmt = pdf_to_html_using_pymupdf(os.path.join(REPORTS_DIR, formats["PDF"]))
+                        if html_fmt == "": continue
+                    except:
+                        continue # skip data errors
 
                     # Save the HTML.
-                    with open(os.path.join(REPORTS_DIR, html_fn), "wb") as f:
+                    with open(os.path.join(REPORTS_DIR, html_fn), "w") as f:
                         f.write(html_fmt)
 
                 # Add to metadata.
                 version["formats"].append(collections.OrderedDict([
                     ("format", "HTML"),
                     ("filename", html_fn),
+                    ("source", "pymupdf"),
                 ]))
 
+def pdf_to_html_using_pdftotext(fn):
+    # Use pdftotext to convert to plain text and then wrap in a preformatted div.
+    # This is not currently used.
+    html_fmt = subprocess.check_output(["pdftotext", fn, "-"]).decode("utf8")
+    html_fmt = "<div style='white-space: pre; word-break: break-all; word-wrap: break-word;'>{}</div>".format(html.escape(html_fmt))
+    return html_fmt
+
+def pdf_to_html_using_pdftohtml(fn):
+    # Use pdftohtml to convert to HTML.
+    # This is not currently used.
+
+    # We'll use check_output to get the HTML returned via STDOUT.
+    # But pdftohtml will extract images using the given PDF filename as a prefix for the generated
+    # image files, and those paths will also be the SRC attributes in the HTML. Since it would become
+    # confusing to additionally track the generated images, we'll store them back inside the HTML
+    # as data: URLs and delete them from disk.
+
+    # TODO: The current version of pdftohtml has a -dataurls option which does exactly
+    # the data: URL thing below, so we could use that instead.
+
+    html_fmt = subprocess.check_output([
+      "pdftohtml", "-stdout", "-zoom", "1.75", "-enc", "UTF-8", "-nodrm", fn
+    ]).decode("utf8")
+    if not html_fmt: return "" # PDF has no text content
+
+    # Just take the body of the HTML file --- trash generated META tags.
+    html_fmt = re.search(r"<body(?:.*?)>(.*)</body>", html_fmt, re.S).group(1)
+
+    # HTML from crsreports.congress.gov PDFs sometimes start with this which we can chop off:
+    m = re.split(r"\n<b>SUMMARY&#160;</b><br/>\n&#160;<br/>\n<b>&#160;</b><br/>\n" + report["id"].encode("ascii") + "&#160;<br/>\n", html_fmt)
+    if len(m) == 2: html_fmt = m[1]
+
+    # pdftohtml generates non-breaking spaces for nearly all spaces so replace them.
+    html_fmt = html_fmt.replace("&#160;", " ")
+
+    # Move the images to inside the HTML.
+    def make_data_url(m):
+         # Construct a new data: URL image tag and delete the extracted image file.
+         img_fn = m.group(1)
+         if not os.path.exists(img_fn): return m.group(0) # don't replace --- file is not on disk
+         with open(img_fn, "rb") as img_file:
+             im_bytes = img_file.read()
+         os.unlink(img_fn) # remove the extracted image file
+
+         # Skip known images --- identify by the hash.
+         import hashlib
+         h = hashlib.sha1()
+         h.update(im_bytes)
+         if h.hexdigest() in ("e33a534ead5596fcdaf2f395005c893e699393d8", "cf0a915631567be404e4ace0eeaaeae95f84ed62", "d437e97be11016d9c0c419a2ddc53a63423b1216"):
+           return "<span" # these are CRS reports header images, zap them out
+
+         if img_fn.endswith(".jpg"):
+             image_format = "jpeg"
+         elif img_fn.endswith(".png"):
+             image_format = "png"
+         else:
+             raise ValueError("Unsupported image type: " + img_fn)
+         url = "data:image/" + image_format + ";base64," + base64.b64encode(im_bytes)
+         return "<img src=\"" + url + "\""
+    html_fmt = re.sub(r"<img src=\"(.*?)\"", make_data_url, html_fmt)
+
+    return html_fmt
+
+def pdf_to_html_using_pymupdf(fn):
+    import pymupdf
+    doc = pymupdf.open(fn)
+    return "\n\n".join(
+        page.get_text("xhtml")
+        for page in doc
+    )
 
 def transform_report_metadata(report_number, report_versions):
     # Construct the data structure for a report, given a list of report versions.

@@ -10,8 +10,11 @@ import tempfile
 import re
 import html
 import datetime
+import io
+import base64
 
 import tqdm
+from PIL import Image
 
 REPORTS_DIR = "processed-reports"
 
@@ -51,8 +54,47 @@ def make_epub(report_id):
 			with open(html_fn, "rb") as src_html_f:
 				document = src_html_f.read()
 
-			# Replace images.
+			# Replace image relative paths with correct paths relative to the working directory.
 			document = re.sub(b"(?<=src=\")/files/.*?(?=\")", lambda m : os.path.join(REPORTS_DIR.encode("ascii"), m.group(0)[1:]), document)
+
+			# Pandoc fails when there are large images, I think. Unclear if this helped.
+			max_image_size_pixels = 1024
+			while max_image_size_pixels > 0:
+				# Check the total size of linked and embedded images.
+				total_image_size = [ 0 ]
+				def increment_total_image_size(url):
+					if url.startswith(b"data:"):
+						total_image_size[0] += len(url)
+					elif not url or not os.path.exists(url):
+						pass
+					else:
+						total_image_size[0] += os.path.getsize(url)
+				re.sub(b"(?<=src=\").*?(?=\")", lambda m : increment_total_image_size(m.group(0)), document)
+				print(len(document), total_image_size[0])
+
+				# Stop when total image data is less than 1 MB.
+				if total_image_size[0] < 1024 * 1024: break
+
+				# Replace large linked images with data: URLs so they can be resized.
+				def replace_image_with_data_url(fn):
+					with open(fn, "rb") as f:
+						return save_image_to_dataurl(Image.open(f))
+				document = re.sub(b"(?<=src=\")/files/.*?(?=\")", lambda m : replace_image_with_data_url(m.group(0)), document)
+
+				# Resize data: URL images.
+				def save_image_to_dataurl(im):
+					with io.BytesIO() as output:
+						im.save(output, format="PNG")
+						return b"data:image/png;base64," + base64.b64encode(output.getvalue())
+				def resize_image(dataurl):
+					m = re.match(b"data:image/\\w*;base64,(.*)", dataurl)
+					if not m: raise ValueError(dataurl)
+					im = Image.open(io.BytesIO(base64.b64decode(m.group(1))))
+					im.thumbnail((max_image_size_pixels, max_image_size_pixels))
+					return save_image_to_dataurl(im)
+				document = re.sub(b"(?<=src=\")data:.*?(?=\")", lambda m : resize_image(m.group(0)), document)
+
+				max_image_size_pixels //= 2
 
 			# Pandoc complains if the HTML file doesn't have a title. It doesn't matter
 			# what it is since we set it explicitly in the epub metadata.
@@ -92,7 +134,10 @@ def make_epub(report_id):
 					"--epub-cover-image=" + os.path.join(REPORTS_DIR, thumbnail_fn),
 				])
 			args.append(html_f.name)
-			subprocess.check_call(args)
+			try:
+				subprocess.check_call(args)
+			except:
+				print("failed", report_id)
 
 	# Record the data used to generate the epub so we know in the future if we
 	# should regenerate it.
