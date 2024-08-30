@@ -1,0 +1,6 @@
+LANGUAGE=en_US.UTF-8
+LC_ALL=en_US.UTF-8
+LANG=en_US.UTF-8
+LC_TYPE=en_US.UTF-8
+
+1 4 * * * { cd crs-reports-website; ./run.sh | ./sendmail "cron - crs reports" }

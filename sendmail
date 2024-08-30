@@ -1,0 +1,6 @@
+#!/bin/bash
+source secrets/credentials.txt
+SUBJECT="$1"
+MESSAGE=$(cat -)
+echo -e "Subject: $SUBJECT\n\n$MESSAGE" \
+	| msmtp -C secrets/msmtprc -- $CRON_EMAIL_TO

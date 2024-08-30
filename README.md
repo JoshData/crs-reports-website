@@ -39,7 +39,7 @@ We use Algolia.com as a hosted facted search service index service.
 
 Install packages and make a virtual environment (based on Ubuntu 22.04):
 
-	sudo apt install python3-virtualenv unzip pandoc
+	sudo apt install python3-virtualenv unzip pandoc msmtp
 	virtualenv venv
 	source venv/bin/activate
 	pip install -r requirements.txt
