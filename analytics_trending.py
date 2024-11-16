@@ -6,61 +6,44 @@
 from datetime import datetime, timedelta
 import json
 import os.path
+import re
 
-from apiclient.discovery import build
-from oauth2client.service_account import ServiceAccountCredentials
-
-
-SCOPES = ['https://www.googleapis.com/auth/analytics.readonly']
-KEY_FILE_LOCATION = 'credentials.google_service_account.json'
-VIEW_ID = '130670929'
+from google.oauth2 import service_account
+from google.analytics.data_v1beta import BetaAnalyticsDataClient
+from google.analytics.data_v1beta.types import RunReportRequest, DateRange, Metric, Dimension
 
 
-def get_top_reports(date_range_start, date_range_end, analytics):
+KEY_FILE_LOCATION = 'secrets/credentials.google_service_account.json'
+PROPERTY_ID = '383598924'
+
+
+def get_top_reports(date_range_start, date_range_end, client):
   # Run query. Get top pageViews in the given date range (inclusive).
-  # Only look at pages that have two 'levels' (i.e. /xxx/yyy),
-  # since report pages always have two levels, and query for the values
-  # of those two levels.
-  response = analytics.reports().batchGet(
-      body={
-        'reportRequests': [
-        {
-          'viewId': VIEW_ID,
-          'dateRanges': [{'startDate': date_range_start.isoformat(), 'endDate': date_range_end.isoformat()}],
-          'metrics': [{'expression': 'ga:pageviews'}],
-          'dimensions': [{'name': 'ga:pagePathLevel1'}, {'name': 'ga:pagePathLevel2' }],
-          'orderBys': [{'fieldName': 'ga:pageViews', "sortOrder": "DESCENDING"}],
-        }]
-      }
-    ).execute()
+  request = RunReportRequest(
+    property = f"properties/{PROPERTY_ID}",
+    date_ranges = [DateRange(start_date=date_range_start.isoformat(), end_date=date_range_end.isoformat())],
+    metrics = [Metric(name="eventCount")],
+    dimensions = [Dimension(name='pagePath')],
+  )
+  response = client.run_report(request)
 
-  # Go to the pageviews report.
-  pageviews = response['reports'][0]['data']['rows']
+  # Return report ID, page view count tuples.
+  for r in response.rows:
+    pagePath = r.dimension_values[0].value
+    eventCount = int(r.metric_values[0].value)
 
-  # Transform the list to tuples of report ID and pageviews
-  # (still in descending order, per the query above).
-  pageviews = [
-    (
-      r["dimensions"][1].lstrip("/").replace(".html", ""),
-      int(r["metrics"][0]["values"][0])
-    )
-    for r in pageviews
-    if r["dimensions"][0] == "/reports/"
-  ]
-
-  # Return the top 20.
-  return pageviews[:20]
-
+    # Extract report ID from pagePath.
+    if m := re.match(r"/reports/(\w+)\.html", pagePath):
+      yield (m.group(1), eventCount)
 
 def main():
-  # Load credentials and create API client.
-  credentials = ServiceAccountCredentials.from_json_keyfile_name(
-      KEY_FILE_LOCATION, SCOPES)
-  analytics = build('analyticsreporting', 'v4', credentials=credentials)
+  # Create API client object.
+  credentials = service_account.Credentials.from_service_account_file(KEY_FILE_LOCATION)
+  client = BetaAnalyticsDataClient(credentials=credentials)
 
   # Write out trending reports - top reports in the last week.
   print("Fetching top reports from Google Analytics in the last week.")
-  trending_reports = get_top_reports(datetime.now().date() - timedelta(days=6), datetime.now().date(), analytics)
+  trending_reports = list(get_top_reports(datetime.now().date() - timedelta(days=6), datetime.now().date(), client))[0:20]
   with open("trending-reports.txt", "w") as f:
     for report_id, pageviews in trending_reports:
       f.write(report_id + "\n")
@@ -84,7 +67,7 @@ def main():
       top_reports_by_week[date_range_end.isoformat()] = {
         "date_start": strftime(date_range_start),
         "date_end": strftime(date_range_end),
-        "reports": get_top_reports(date_range_start, date_range_end, analytics)
+        "reports": list(get_top_reports(date_range_start, date_range_end, client))[0:20]
       }
     date_range_end -= timedelta(days=7)
 

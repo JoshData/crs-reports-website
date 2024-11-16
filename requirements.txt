@@ -9,7 +9,7 @@ pytz
 algoliasearch
 xml_diff
 fast-diff-match-patch
-google-api-python-client
 scrapelib
 pymupdf
 pillow
+google-analytics-data
